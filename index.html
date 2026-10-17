@@ -3,102 +3,77 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Greenhouse in your backyard</title>
-<meta name="description" content="See the wooden lattice-rib tunnel greenhouse at full size in your own yard, in AR.">
+<title>Greenhouse AR</title>
+<meta name="description" content="See the wooden lattice-rib tunnel greenhouse in AR: as a scale model on your table, or life-size in your backyard.">
 <meta name="theme-color" content="#1f2a22">
-<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js"></script>
 <style>
   :root {
     --bg: #f4f1ea; --card: #fffdf8; --ink: #1f2a22; --muted: #5d685f; --line: #ddd6c8;
-    --wood: #c9a26a; --leaf: #4d7a3a; --leaf-ink: #ffffff; --stage: #e9e4d8;
+    --wood: #b88a4e; --leaf: #4d7a3a; --leaf-ink: #fff; --tint: #ece6d9;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #151a16; --card: #1d241f; --ink: #eef1ea; --muted: #a3ada5; --line: #2f3a32; --wood: #d9b57c; --leaf: #6a9d52; --stage: #222b25; }
+    :root { --bg: #151a16; --card: #1d241f; --ink: #eef1ea; --muted: #a3ada5; --line: #2f3a32; --wood: #d9b57c; --leaf: #6a9d52; --tint: #232c26; }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--ink); }
   body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
-  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
-  h1 { font-size: 1.6rem; line-height: 1.2; margin: 4px 0 4px; letter-spacing: -0.01em; }
-  .lede { color: var(--muted); margin: 0 0 16px; }
-  .stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
-  model-viewer { width: 100%; height: min(62vh, 520px); --poster-color: transparent; }
-  .toggle { position: absolute; top: 12px; left: 12px; display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; z-index: 2; }
-  .toggle button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.9rem; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
-  .toggle button[aria-pressed="true"] { background: var(--ink); color: var(--card); }
-  .ar { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin: 14px 0 6px; padding: 16px 20px; border: 0; border-radius: 14px;
-        background: var(--leaf); color: var(--leaf-ink); font: 600 1.1rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
-  .ar svg { width: 22px; height: 22px; }
-  .ar[disabled] { opacity: .45; cursor: default; }
-  .note { color: var(--muted); font-size: 0.9rem; min-height: 1.4em; margin: 0 0 18px; text-align: center; }
-  .specs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 22px; }
-  .spec { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
-  .spec b { display: block; font-size: 1.25rem; line-height: 1.2; }
-  .spec span { color: var(--muted); font-size: 0.8rem; }
-  h2 { font-size: 1rem; margin: 0 0 8px; }
-  ol { margin: 0; padding-left: 1.2em; }
-  li { margin: 0 0 6px; }
-  footer { color: var(--muted); font-size: 0.8rem; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 12px; }
-  @media (max-width: 380px) { .specs { grid-template-columns: 1fr 1fr; } }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 40px; }
+  .hero { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .hero svg { flex: 0 0 auto; width: 92px; height: 64px; color: var(--wood); }
+  h1 { font-size: 1.7rem; line-height: 1.15; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin: 0; }
+  .modes { display: grid; gap: 12px; }
+  @media (min-width: 640px) { .modes { grid-template-columns: 1fr 1fr; } }
+  a.mode { display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit; background: var(--card); border: 1px solid var(--line);
+           border-radius: 16px; padding: 18px 18px 16px; transition: transform .12s ease, border-color .12s ease; }
+  a.mode:hover, a.mode:focus-visible { border-color: var(--leaf); transform: translateY(-1px); outline: none; }
+  .tag { align-self: flex-start; font-size: 0.75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--tint); border-radius: 999px; padding: 2px 10px; }
+  a.mode h2 { margin: 4px 0 0; font-size: 1.3rem; }
+  a.mode p { margin: 0; color: var(--muted); }
+  .go { margin-top: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--leaf); color: var(--leaf-ink);
+        border-radius: 12px; padding: 13px 16px; font-weight: 600; }
+  a.mode.second .go { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
+  .facts { margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .fact { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .fact b { display: block; font-size: 1.15rem; }
+  .fact span { color: var(--muted); font-size: 0.8rem; }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 12px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Greenhouse in your backyard</h1>
-  <p class="lede">The wooden lattice-rib tunnel greenhouse at true 1:1 scale. Open this page in Chrome on your phone, then place it on your lawn and walk around it, or inside it.</p>
-
-  <div class="stage">
-    <div class="toggle" role="group" aria-label="Model">
-      <button type="button" data-src="greenhouse.glb" aria-pressed="true">Finished</button>
-      <button type="button" data-src="frame.glb" aria-pressed="false">Frame only</button>
+  <div class="hero">
+    <svg viewBox="0 0 92 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+      <path d="M8 58V34a26 26 0 0 1 52 0v24"/><path d="M32 58V40a26 26 0 0 1 52-6v24" opacity=".55"/><path d="M14 20l24 -12M34 8l26 0M54 8l24 12" opacity=".55"/><path d="M4 58h84"/>
+    </svg>
+    <div>
+      <h1>Greenhouse AR</h1>
+      <p class="lede">The wooden lattice-rib tunnel greenhouse, in your own space.</p>
     </div>
-    <model-viewer id="mv" src="greenhouse.glb" alt="Wooden tunnel greenhouse with polycarbonate cladding"
-      ar ar-modes="scene-viewer webxr quick-look" ar-placement="floor" ar-scale="fixed"
-      camera-controls touch-action="pan-y" shadow-intensity="1" exposure="1" environment-image="neutral"
-      camera-orbit="-35deg 72deg 82%" interaction-prompt="none">
-      <button slot="ar-button" style="display:none" aria-hidden="true"></button>
-    </model-viewer>
   </div>
 
-  <button class="ar" id="ar" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>
-    View in your backyard
-  </button>
-  <p class="note" id="note"></p>
-
-  <div class="specs">
-    <div class="spec"><b>3.74 m</b><span>span (12 ft 3 in)</span></div>
-    <div class="spec"><b>16 ft</b><span>long (4.9 m)</span></div>
-    <div class="spec"><b>2.6 m</b><span>headroom (8 ft 6 in)</span></div>
+  <div class="modes">
+    <a class="mode" href="table.html">
+      <span class="tag">Scale model</span>
+      <h2>On your table</h2>
+      <p>Place it on any table, size it from 1:100 up to life size, turn it, then lock it in place and walk around it.</p>
+      <span class="go">Open tabletop mode →</span>
+    </a>
+    <a class="mode second" href="yard.html">
+      <span class="tag">Life size · 1:1</span>
+      <h2>In your backyard</h2>
+      <p>Full size on your lawn: see the real footprint, walk around it and step inside.</p>
+      <span class="go">Open backyard mode →</span>
+    </a>
   </div>
 
-  <h2>Tips</h2>
-  <ol>
-    <li>Go out in daylight; AR struggles in the dark and on plain, glare-y surfaces.</li>
-    <li>Before it appears, move the phone slowly and point at the ground so it can find the lawn.</li>
-    <li>You need a clear area of about 6 × 8 m. The pale rectangle is the 4.7 × 5.9 m gravel pad.</li>
-    <li>Needs an ARCore phone (most recent Android phones) with Google Play Services for AR.</li>
-  </ol>
+  <div class="facts">
+    <div class="fact"><b>3.74 m</b><span>span</span></div>
+    <div class="fact"><b>16 ft</b><span>long (4.9 m)</span></div>
+    <div class="fact"><b>2.6 m</b><span>headroom</span></div>
+  </div>
 
-  <footer>Shown at true scale and fixed size: pinching won't shrink it in AR. A planning model, not a structural design.</footer>
+  <footer>Works in Chrome on an Android phone with ARCore (Google Play Services for AR). On a computer you get a 3D preview. A planning model, not a structural design.</footer>
 </main>
-<script type="module">
-  const mv = document.getElementById("mv"), ar = document.getElementById("ar"), note = document.getElementById("note");
-  document.querySelectorAll(".toggle button").forEach((b) => b.addEventListener("click", () => {
-    mv.src = b.dataset.src;
-    document.querySelectorAll(".toggle button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-  }));
-  ar.addEventListener("click", () => mv.activateAR());
-  mv.addEventListener("load", () => {
-    if (!mv.canActivateAR) {
-      ar.disabled = true;
-      note.textContent = "AR opens on a phone: send yourself this link and open it in Chrome on Android.";
-    }
-  });
-  mv.addEventListener("ar-status", (e) => {
-    if (e.detail.status === "failed") note.textContent = "AR couldn't start. Check that Google Play Services for AR is installed.";
-  });
-</script>
 </body>
 </html>

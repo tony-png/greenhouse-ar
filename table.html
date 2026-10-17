@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Greenhouse · tabletop AR</title>
+<meta name="description" content="Put a scale model of the wooden tunnel greenhouse on your table in AR: resize it, turn it, lock it in place.">
+<meta name="theme-color" content="#1f2a22">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+} }
+</script>
+<style>
+  :root {
+    --bg: #f4f1ea; --card: #fffdf8; --ink: #1f2a22; --muted: #5d685f; --line: #ddd6c8;
+    --leaf: #4d7a3a; --leaf-ink: #fff; --stage1: #efe9dc; --stage2: #ddd5c3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151a16; --card: #1d241f; --ink: #eef1ea; --muted: #a3ada5; --line: #2f3a32; --leaf: #6a9d52; --stage1: #2a332c; --stage2: #1c231e; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+  .back { display: inline-block; color: var(--muted); text-decoration: none; font-size: 0.9rem; margin-bottom: 6px; }
+  .back:hover { color: var(--ink); }
+  h1 { font-size: 1.6rem; line-height: 1.2; margin: 4px 0 4px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin: 0 0 16px; }
+  .stage { position: relative; height: min(58vh, 500px); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+           background: radial-gradient(120% 90% at 50% 30%, var(--stage1), var(--stage2)); }
+  .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  .seg { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.9rem; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+  .stage .seg { position: absolute; top: 12px; left: 12px; z-index: 2; }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .95rem; pointer-events: none; }
+  .loading[hidden] { display: none; }
+  .ar { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin: 14px 0 6px; padding: 16px 20px; border: 0; border-radius: 14px;
+        background: var(--leaf); color: var(--leaf-ink); font: 600 1.1rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
+  .ar svg { width: 22px; height: 22px; }
+  .ar[disabled] { opacity: .45; cursor: default; }
+  .note { color: var(--muted); font-size: 0.9rem; min-height: 1.4em; margin: 0 0 18px; text-align: center; }
+  h2 { font-size: 1rem; margin: 0 0 8px; }
+  ol { margin: 0; padding-left: 1.2em; }
+  li { margin: 0 0 6px; }
+  footer { color: var(--muted); font-size: 0.8rem; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 12px; }
+  footer a { color: inherit; }
+
+  /* AR overlay (the WebXR dom-overlay root) */
+  #overlay { display: none; position: fixed; inset: 0; z-index: 10; touch-action: none; user-select: none; -webkit-user-select: none;
+             color: #fff; font: 15px/1.35 system-ui, sans-serif; }
+  #overlay.on { display: block; }
+  .chip { background: rgba(18, 24, 20, .72); border-radius: 12px; padding: 8px 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .ov-top { position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: 12px; right: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  #readout { font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  #readout:empty { display: none; }
+  .ov-bottom { position: absolute; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 14px); display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .ov-bottom button { font: 600 0.95rem/1 system-ui, sans-serif; border: 0; border-radius: 999px; padding: 11px 15px; cursor: pointer;
+                      background: rgba(18, 24, 20, .72); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .ov-bottom button[aria-pressed="true"] { background: #fff; color: #1f2a22; }
+  .ov-bottom button:disabled { opacity: .4; }
+  #lock { background: #4d7a3a; min-width: 110px; }
+  #lock[data-locked="true"] { background: #e9e4d8; color: #1f2a22; }
+  .ov-bottom .seg { background: rgba(18, 24, 20, .72); border: 0; }
+  .ov-bottom .seg button { background: transparent; padding: 9px 13px; }
+  .ov-bottom .seg button[aria-pressed="true"] { background: #fff; color: #1f2a22; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="./">← Both AR modes</a>
+  <h1>Greenhouse on your table</h1>
+  <p class="lede">A scale model in AR. Place it on a table, size it from 1:100 up to life size, turn it, then lock it and walk around it.</p>
+
+  <div class="stage">
+    <div class="seg" data-models role="group" aria-label="Model">
+      <button type="button" data-src="greenhouse.glb" aria-pressed="true">Finished</button>
+      <button type="button" data-src="frame.glb" aria-pressed="false">Frame only</button>
+    </div>
+    <canvas id="c" aria-label="3D preview of the greenhouse; drag to turn, pinch or scroll to zoom"></canvas>
+    <div class="loading" id="loading">Loading model…</div>
+  </div>
+
+  <button class="ar" id="start" type="button" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>
+    Put it on my table
+  </button>
+  <p class="note" id="note">Checking for AR support…</p>
+
+  <h2>How it works</h2>
+  <ol>
+    <li>Point the phone at a table and move it slowly until the ring appears.</li>
+    <li>Tap to place the model (1:20, about 29 cm long). Tap again to move it somewhere else.</li>
+    <li>Drag to slide it, pinch to resize, twist two fingers to turn it, or use the scale buttons.</li>
+    <li>Tap <b>Lock</b> to fix it in place, then walk around it. Tap <b>Unlock</b> to adjust again.</li>
+  </ol>
+
+  <footer>Needs Chrome on an Android phone with ARCore (Google Play Services for AR). Prefer it full size? Try <a href="yard.html">the backyard mode</a>. A planning model, not a structural design.</footer>
+</main>
+
+<div id="overlay">
+  <div class="ov-top">
+    <div class="chip" id="hint">Point at a table and move the phone slowly</div>
+    <div class="chip" id="readout"></div>
+  </div>
+  <div class="ov-bottom">
+    <div class="row" id="presets">
+      <button type="button" data-ratio="50">1:50</button>
+      <button type="button" data-ratio="20">1:20</button>
+      <button type="button" data-ratio="10">1:10</button>
+      <button type="button" data-ratio="1">Life size</button>
+    </div>
+    <div class="row">
+      <div class="seg" data-models role="group" aria-label="Model">
+        <button type="button" data-src="greenhouse.glb" aria-pressed="true">Finished</button>
+        <button type="button" data-src="frame.glb" aria-pressed="false">Frame</button>
+      </div>
+      <button type="button" id="lock" data-locked="false" disabled>Lock</button>
+      <button type="button" id="exit">Exit</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { XREstimatedLight } from "three/addons/webxr/XREstimatedLight.js";
+
+const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.186.1/";
+const MIN_SCALE = 1 / 100, MAX_SCALE = 1, DEFAULT_SCALE = 1 / 20;
+const $ = (id) => document.getElementById(id);
+const canvas = $("c"), stage = canvas.parentElement, overlay = $("overlay"), note = $("note"), hint = $("hint"), readout = $("readout");
+const startBtn = $("start"), lockBtn = $("lock");
+window.__three = THREE.REVISION;
+
+// ---------- renderer, scene, preview camera ----------
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.xr.enabled = true;
+
+const scene = new THREE.Scene();
+const roomEnv = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environment = roomEnv;
+scene.environmentIntensity = 0.7;
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 300);
+camera.position.set(-10.2, 6.1, 11.6);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 1.0, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.48;
+controls.minDistance = 3;
+controls.maxDistance = 30;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a60, 1.3);
+const sun = new THREE.DirectionalLight(0xfff3e2, 2.4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(hemi, sun, sun.target);
+const SUN_DIR = new THREE.Vector3(0.55, 1.35, 0.75).normalize();
+
+// root = the anchor (matrix from WebXR) > model = position on the surface, yaw and scale > content = the glb
+const root = new THREE.Group();
+root.matrixAutoUpdate = false;
+scene.add(root);
+const model = new THREE.Group();
+root.add(model);
+const contact = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.33 }));
+contact.rotation.x = -Math.PI / 2;
+contact.position.y = 0.002;
+contact.receiveShadow = true;
+model.add(contact);
+
+const reticle = new THREE.Group();
+reticle.matrixAutoUpdate = false;
+reticle.visible = false;
+const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.045, 0.058, 48).rotateX(-Math.PI / 2), ringMat));
+reticle.add(new THREE.Mesh(new THREE.CircleGeometry(0.008, 20).rotateX(-Math.PI / 2), ringMat));
+scene.add(reticle);
+
+// ---------- models ----------
+const loader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath(THREE_URL + "examples/jsm/libs/draco/gltf/"));
+const cache = {};
+let content = null;
+const size = new THREE.Vector3(4.7, 2.87, 5.88);
+
+function load(src) {
+  return (cache[src] ||= loader.loadAsync(src).then((gltf) => {
+    gltf.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      const clear = o.material.transparent;
+      o.castShadow = !clear;
+      o.receiveShadow = !clear;
+      if (clear) o.material.depthWrite = false;
+    });
+    return gltf.scene;
+  }));
+}
+
+async function showModel(src) {
+  document.querySelectorAll("[data-models] button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.src === src)));
+  const obj = await load(src);
+  if (content) model.remove(content);
+  new THREE.Box3().setFromObject(obj).getSize(size);
+  content = obj;
+  model.add(obj);
+  contact.scale.set(size.x * 1.5, size.z * 1.5, 1);
+  $("loading").hidden = true;
+  updateReadout();
+}
+document.querySelectorAll("[data-models] button").forEach((b) => b.addEventListener("click", () => showModel(b.dataset.src)));
+
+// ---------- light and contact shadow follow the model at any scale ----------
+let xrLight = null, estimating = false;
+const centre = new THREE.Vector3(), dir = new THREE.Vector3();
+function fitShadow() {
+  const s = model.scale.x;
+  model.getWorldPosition(centre);
+  if (estimating) {
+    dir.copy(xrLight.directionalLight.position).normalize();
+    if (dir.y < 0.45) { dir.y = 0.45; dir.normalize(); } // keep shadows short enough to stay on the table
+    sun.color.copy(xrLight.directionalLight.color);
+    sun.intensity = THREE.MathUtils.clamp(xrLight.directionalLight.intensity, 0.6, 3.5);
+  } else dir.copy(SUN_DIR);
+  const r = Math.max(size.x, size.z) * 0.8 * s + 0.01;
+  sun.position.copy(centre).addScaledVector(dir, r * 4);
+  sun.target.position.copy(centre);
+  sun.target.updateMatrixWorld();
+  const cam = sun.shadow.camera;
+  if (cam.right !== r) {
+    cam.left = cam.bottom = -r;
+    cam.right = cam.top = r;
+    cam.near = r * 0.5;
+    cam.far = r * 8;
+    cam.updateProjectionMatrix();
+    sun.shadow.normalBias = 0.02 * s;
+    sun.shadow.bias = -0.0003;
+  }
+}
+
+// ---------- readout and presets ----------
+function ratioOf(s) { return 1 / s; }
+function updateReadout() {
+  const s = model.scale.x, n = ratioOf(s), len = size.z * s;
+  const label = n < 1.05 ? "Life size" : "1:" + (n >= 10 ? Math.round(n) : n.toFixed(1));
+  readout.textContent = renderer.xr.isPresenting && placed ? `${label} · ${len >= 1 ? len.toFixed(2) + " m" : Math.round(len * 100) + " cm"} long` : "";
+  document.querySelectorAll("#presets button").forEach((b) => b.setAttribute("aria-pressed", String(Math.abs(Number(b.dataset.ratio) - n) / n < 0.03)));
+}
+function setScale(s) {
+  model.scale.setScalar(THREE.MathUtils.clamp(s, MIN_SCALE, MAX_SCALE));
+  updateReadout();
+}
+document.querySelectorAll("#presets button").forEach((b) => b.addEventListener("click", () => { if (!locked) setScale(1 / Number(b.dataset.ratio)); }));
+
+// ---------- AR session ----------
+let session = null, refSpace = null, hitSource = null, anchor = null, lastHit = null;
+let placed = false, locked = false, wantPlace = false;
+
+async function checkSupport() {
+  let ok = false;
+  try { ok = !!navigator.xr && (await navigator.xr.isSessionSupported("immersive-ar")); } catch { ok = false; }
+  startBtn.disabled = !ok;
+  note.textContent = ok ? "" : "Tabletop AR needs Chrome on an Android phone with ARCore. You can still turn and zoom the 3D preview here.";
+}
+
+async function startAR() {
+  overlay.classList.add("on");
+  try {
+    session = await navigator.xr.requestSession("immersive-ar", {
+      requiredFeatures: ["hit-test"],
+      optionalFeatures: ["dom-overlay", "anchors", "light-estimation"],
+      domOverlay: { root: overlay },
+    });
+  } catch (e) {
+    overlay.classList.remove("on");
+    note.textContent = "AR couldn't start (" + (e.message || e.name) + "). Check that Google Play Services for AR is installed.";
+    return;
+  }
+  // only ask for a light probe when the feature was granted (otherwise the request rejects)
+  if (!xrLight && (session.enabledFeatures || []).includes("light-estimation")) {
+    xrLight = new XREstimatedLight(renderer);
+    xrLight.addEventListener("estimationstart", () => {
+      scene.add(xrLight);
+      xrLight.directionalLight.visible = false; // its direction drives our shadow-casting sun instead
+      hemi.visible = false;
+      estimating = true;
+      if (xrLight.environment) scene.environment = xrLight.environment;
+    });
+    xrLight.addEventListener("estimationend", () => {
+      scene.remove(xrLight);
+      hemi.visible = true;
+      estimating = false;
+      scene.environment = roomEnv;
+    });
+  }
+  renderer.xr.setReferenceSpaceType("local");
+  await renderer.xr.setSession(session);
+  refSpace = renderer.xr.getReferenceSpace();
+  hitSource = await session.requestHitTestSource({ space: await session.requestReferenceSpace("viewer") });
+  session.addEventListener("end", endAR);
+  if (!session.domOverlayState) session.addEventListener("select", () => { if (!locked) wantPlace = true; }); // no overlay: tap = place
+  controls.enabled = false;
+  placed = locked = false;
+  model.visible = false;
+  model.position.set(0, 0, 0);
+  model.rotation.set(0, 0, 0);
+  setScale(DEFAULT_SCALE);
+  setLocked(false);
+  lockBtn.disabled = true;
+}
+
+function endAR() {
+  hitSource = null;
+  if (anchor) { anchor.delete?.(); anchor = null; }
+  session = null;
+  placed = locked = wantPlace = false;
+  overlay.classList.remove("on");
+  reticle.visible = false;
+  root.matrix.identity();
+  root.matrixWorldNeedsUpdate = true;
+  model.position.set(0, 0, 0);
+  model.rotation.set(0, 0, 0);
+  model.scale.setScalar(1);
+  model.visible = true;
+  controls.enabled = true;
+  resize();
+}
+
+$("exit").addEventListener("click", () => session?.end());
+startBtn.addEventListener("click", startAR);
+
+function setLocked(on) {
+  locked = on;
+  lockBtn.dataset.locked = String(on);
+  lockBtn.textContent = on ? "Unlock" : "Lock";
+  document.querySelectorAll("#presets button").forEach((b) => (b.disabled = on));
+}
+lockBtn.addEventListener("click", () => { if (placed) setLocked(!locked); });
+
+const tmpQ = new THREE.Quaternion(), up = new THREE.Vector3(), camPos = new THREE.Vector3();
+function horizontal(pose) {
+  const o = pose.transform.orientation;
+  return up.set(0, 1, 0).applyQuaternion(tmpQ.set(o.x, o.y, o.z, o.w)).y > 0.85;
+}
+
+function placeAt(hit, pose) {
+  root.matrix.fromArray(pose.transform.matrix);
+  root.matrixWorldNeedsUpdate = true;
+  root.updateMatrixWorld(true);
+  model.position.set(0, 0, 0);
+  if (!placed) { // first placement: turn it so you see it the way the preview shows it
+    xrView().getWorldPosition(camPos);
+    root.worldToLocal(camPos);
+    model.rotation.y = Math.atan2(camPos.x, camPos.z) - Math.atan2(-10.2, 11.6);
+  }
+  model.visible = true;
+  placed = true;
+  lockBtn.disabled = false;
+  if (anchor) { anchor.delete?.(); anchor = null; }
+  if (hit.createAnchor) hit.createAnchor().then((a) => { if (placed && !anchor) anchor = a; else a.delete?.(); }).catch(() => {});
+  updateReadout();
+}
+
+function xrView() {
+  const cam = renderer.xr.getCamera();
+  return cam.cameras && cam.cameras.length ? cam.cameras[0] : cam;
+}
+
+// ---------- gestures on the overlay: tap, one-finger drag, two-finger pinch + twist ----------
+const pointers = new Map();
+let gesture = null;
+const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(), hitPoint = new THREE.Vector3();
+const rootQ = new THREE.Quaternion(), rootPos = new THREE.Vector3(), rootScale = new THREE.Vector3();
+
+function onTable(x, y, out) { // screen point → point on the plane the model stands on (world space)
+  ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, xrView());
+  root.matrixWorld.decompose(rootPos, rootQ, rootScale);
+  plane.setFromNormalAndCoplanarPoint(up.set(0, 1, 0).applyQuaternion(rootQ), rootPos);
+  return raycaster.ray.intersectPlane(plane, out);
+}
+
+function beginGesture() {
+  const pts = [...pointers.values()];
+  gesture = null;
+  if (!placed || locked) return;
+  if (pts.length === 1) {
+    const p = onTable(pts[0].x, pts[0].y, new THREE.Vector3());
+    if (p) gesture = { kind: "drag", from: p, start: model.position.clone(), moved: false, x0: pts[0].x, y0: pts[0].y };
+  } else if (pts.length >= 2) {
+    const [a, b] = pts;
+    gesture = { kind: "pinch", d0: Math.hypot(b.x - a.x, b.y - a.y) || 1, a0: Math.atan2(b.y - a.y, b.x - a.x), s0: model.scale.x, r0: model.rotation.y };
+  }
+}
+
+function moveGesture() {
+  if (!gesture || locked) return;
+  const pts = [...pointers.values()];
+  if (gesture.kind === "drag" && pts.length === 1) {
+    if (!gesture.moved && Math.hypot(pts[0].x - gesture.x0, pts[0].y - gesture.y0) < 10) return;
+    gesture.moved = true;
+    if (!onTable(pts[0].x, pts[0].y, hitPoint)) return;
+    const delta = hitPoint.sub(gesture.from).applyQuaternion(rootQ.clone().invert());
+    model.position.set(gesture.start.x + delta.x, 0, gesture.start.z + delta.z);
+  } else if (gesture.kind === "pinch" && pts.length >= 2) {
+    const [a, b] = pts;
+    setScale(gesture.s0 * Math.hypot(b.x - a.x, b.y - a.y) / gesture.d0);
+    model.rotation.y = gesture.r0 - (Math.atan2(b.y - a.y, b.x - a.x) - gesture.a0);
+  }
+}
+
+overlay.addEventListener("beforexrselect", (e) => e.preventDefault()); // touches on the overlay are ours, not XR selects
+overlay.addEventListener("pointerdown", (e) => {
+  if (e.target.closest("button")) return;
+  overlay.setPointerCapture?.(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
+  beginGesture();
+});
+overlay.addEventListener("pointermove", (e) => {
+  const p = pointers.get(e.pointerId);
+  if (!p) return;
+  p.x = e.clientX;
+  p.y = e.clientY;
+  moveGesture();
+});
+function pointerEnd(e) {
+  const p = pointers.get(e.pointerId);
+  if (!p) return;
+  const tap = pointers.size === 1 && performance.now() - p.t0 < 300 && Math.hypot(p.x - p.x0, p.y - p.y0) < 10 && !(gesture && gesture.moved);
+  pointers.delete(e.pointerId);
+  if (tap && !locked && e.type === "pointerup") wantPlace = true;
+  beginGesture(); // the remaining finger(s) start a fresh gesture
+}
+overlay.addEventListener("pointerup", pointerEnd);
+overlay.addEventListener("pointercancel", pointerEnd);
+
+// ---------- loop ----------
+function resize() {
+  if (renderer.xr.isPresenting) return;
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize);
+
+renderer.setAnimationLoop((time, frame) => {
+  if (frame && hitSource) {
+    const hits = frame.getHitTestResults(hitSource);
+    lastHit = null;
+    if (hits.length) {
+      const pose = hits[0].getPose(refSpace);
+      if (pose && horizontal(pose)) { lastHit = { hit: hits[0], pose }; reticle.matrix.fromArray(pose.transform.matrix); }
+    }
+    if (wantPlace) { wantPlace = false; if (lastHit && !locked) placeAt(lastHit.hit, lastHit.pose); }
+    if (anchor && frame.trackedAnchors?.has(anchor)) {
+      const p = frame.getPose(anchor.anchorSpace, refSpace);
+      if (p) { root.matrix.fromArray(p.transform.matrix); root.matrixWorldNeedsUpdate = true; }
+    }
+    reticle.visible = !!lastHit && !locked && !(gesture && pointers.size);
+    hint.textContent = locked ? "Locked in place. Walk around it."
+      : placed ? "Drag to move · pinch to resize · twist to turn · tap to re-place"
+      : lastHit ? "Tap to place the greenhouse" : "Point at a table and move the phone slowly";
+  } else controls.update();
+  fitShadow();
+  renderer.render(scene, camera);
+});
+
+resize();
+checkSupport();
+showModel("greenhouse.glb").then(() => { window.__ready = true; }).catch((e) => {
+  $("loading").textContent = "Couldn't load the model.";
+  console.error(e);
+});
+</script>
+</body>
+</html>
