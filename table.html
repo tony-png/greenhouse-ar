@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Greenhouse · tabletop AR</title>
-<meta name="description" content="Put a scale model of the wooden tunnel greenhouse on your table in AR: resize it, turn it, lock it in place.">
+<meta name="description" content="Put a scale model of the wooden tunnel greenhouse on your table in AR: resize it, turn it, lock it, compare finishes and play the assembly step by step.">
 <meta name="theme-color" content="#1f2a22">
 <script type="importmap">
 { "imports": {
@@ -28,15 +28,32 @@
   .back:hover { color: var(--ink); }
   h1 { font-size: 1.6rem; line-height: 1.2; margin: 4px 0 4px; letter-spacing: -0.01em; }
   .lede { color: var(--muted); margin: 0 0 16px; }
-  .stage { position: relative; height: min(58vh, 500px); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+  .stage { position: relative; height: min(56vh, 480px); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
            background: radial-gradient(120% 90% at 50% 30%, var(--stage1), var(--stage2)); }
   .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-  .seg { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
-  .seg button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.9rem; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  .seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.88rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
   .seg button[aria-pressed="true"] { background: var(--ink); color: var(--card); }
   .stage .seg { position: absolute; top: 12px; left: 12px; z-index: 2; }
   .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .95rem; pointer-events: none; }
   .loading[hidden] { display: none; }
+  .controls { display: grid; gap: 10px; margin: 12px 0 0; }
+  .ctl { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .ctl > span { color: var(--muted); font-size: 0.9rem; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; user-select: none; }
+  .switch input { appearance: none; width: 40px; height: 24px; border-radius: 999px; background: var(--line); position: relative; margin: 0; cursor: pointer; transition: background .15s; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .switch input:checked { background: var(--leaf); }
+  .switch input:checked::after { transform: translateX(16px); }
+  .switch input:disabled { opacity: .4; cursor: default; }
+  .switch:has(input:disabled) { color: var(--muted); cursor: default; }
+  .player { display: grid; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+  .player[hidden] { display: none; }
+  .caption { font-weight: 600; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .transport { display: flex; align-items: center; gap: 8px; }
+  .transport button { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px; width: 40px; height: 36px; font-size: 1rem; cursor: pointer; flex: 0 0 auto; }
+  .transport button.play { width: 48px; background: var(--leaf); color: var(--leaf-ink); border-color: transparent; }
+  .transport input[type=range] { flex: 1; accent-color: var(--leaf); min-width: 0; }
   .ar { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin: 14px 0 6px; padding: 16px 20px; border: 0; border-radius: 14px;
         background: var(--leaf); color: var(--leaf-ink); font: 600 1.1rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
   .ar svg { width: 22px; height: 22px; }
@@ -56,32 +73,66 @@
   .ov-top { position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: 12px; right: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
   #readout { font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
   #readout:empty { display: none; }
-  .ov-bottom { position: absolute; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 14px); display: flex; flex-direction: column; gap: 10px; align-items: center; }
-  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  .ov-bottom button { font: 600 0.95rem/1 system-ui, sans-serif; border: 0; border-radius: 999px; padding: 11px 15px; cursor: pointer;
+  .ov-bottom { position: absolute; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .row { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; align-items: center; }
+  .ov-bottom button { font: 600 0.9rem/1 system-ui, sans-serif; border: 0; border-radius: 999px; padding: 10px 13px; cursor: pointer;
                       background: rgba(18, 24, 20, .72); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   .ov-bottom button[aria-pressed="true"] { background: #fff; color: #1f2a22; }
   .ov-bottom button:disabled { opacity: .4; }
-  #lock { background: #4d7a3a; min-width: 110px; }
+  #lock { background: #4d7a3a; min-width: 96px; }
   #lock[data-locked="true"] { background: #e9e4d8; color: #1f2a22; }
   .ov-bottom .seg { background: rgba(18, 24, 20, .72); border: 0; }
-  .ov-bottom .seg button { background: transparent; padding: 9px 13px; }
+  .ov-bottom .seg button { background: transparent; padding: 8px 11px; backdrop-filter: none; }
   .ov-bottom .seg button[aria-pressed="true"] { background: #fff; color: #1f2a22; }
+  .ov-panel { background: rgba(18, 24, 20, .78); border-radius: 16px; padding: 10px 12px; display: grid; gap: 8px; width: min(100%, 440px); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .ov-panel[hidden] { display: none; }
+  .ov-panel .switch input { background: rgba(255,255,255,.25); }
+  .ov-panel .switch input:checked { background: #6a9d52; }
+  .ov-panel .note { color: #d6ddd6; margin: 0; font-size: .82rem; text-align: left; min-height: 0; }
+  .ov-panel .note:empty { display: none; }
+  .ov-player { width: min(100%, 440px); display: grid; gap: 6px; }
+  .ov-player[hidden] { display: none; }
+  .ov-player .caption { text-align: center; }
+  .ov-player .transport button { background: rgba(18, 24, 20, .72); color: #fff; border: 0; border-radius: 999px; width: 42px; height: 38px; padding: 0; }
+  .ov-player .transport button.play { background: #4d7a3a; width: 50px; }
 </style>
 </head>
 <body>
 <main>
   <a class="back" href="./">← Both AR modes</a>
   <h1>Greenhouse on your table</h1>
-  <p class="lede">A scale model in AR. Place it on a table, size it from 1:100 up to life size, turn it, then lock it and walk around it.</p>
+  <p class="lede">A scale model in AR. Place it on a table, size it from 1:100 up to life size, turn it, lock it, compare finishes, and play the assembly step by step.</p>
 
   <div class="stage">
     <div class="seg" data-models role="group" aria-label="Model">
-      <button type="button" data-src="greenhouse.glb" aria-pressed="true">Finished</button>
-      <button type="button" data-src="frame.glb" aria-pressed="false">Frame only</button>
+      <button type="button" data-model="greenhouse" aria-pressed="true">Finished</button>
+      <button type="button" data-model="frame" aria-pressed="false">Frame</button>
+      <button type="button" data-model="assembly" aria-pressed="false">Assembly</button>
     </div>
     <canvas id="c" aria-label="3D preview of the greenhouse; drag to turn, pinch or scroll to zoom"></canvas>
     <div class="loading" id="loading">Loading model…</div>
+  </div>
+
+  <div class="controls">
+    <div class="player" data-player hidden>
+      <div class="caption" data-caption>Step 1 / 15</div>
+      <div class="transport">
+        <button type="button" data-prev aria-label="Previous step">⏮</button>
+        <button type="button" class="play" data-play aria-label="Play or pause">▶</button>
+        <button type="button" data-next aria-label="Next step">⏭</button>
+        <input type="range" data-scrub min="0" max="1000" value="0" aria-label="Position in this step">
+      </div>
+    </div>
+    <div class="ctl"><span>Look</span>
+      <div class="seg" data-looks role="group" aria-label="Look">
+        <button type="button" data-look="flat" aria-pressed="true">Flat</button>
+        <button type="button" data-look="baked" aria-pressed="false">Blender-baked</button>
+        <button type="button" data-look="photo" aria-pressed="false">Photo wood</button>
+      </div>
+    </div>
+    <div class="ctl"><span>Lighting</span>
+      <label class="switch"><input type="checkbox" data-ao checked> Contact shadows</label>
+    </div>
   </div>
 
   <button class="ar" id="start" type="button" disabled>
@@ -96,10 +147,10 @@
     <li>Point the phone at a table and move it slowly until the ring appears.</li>
     <li>Tap to place the model (1:20, about 29 cm long). Tap again to move it somewhere else.</li>
     <li>Drag to slide it, pinch to resize, twist two fingers to turn it, or use the scale buttons.</li>
-    <li>Tap <b>Lock</b> to fix it in place, then walk around it. Tap <b>Unlock</b> to adjust again.</li>
+    <li>Tap <b>Lock</b> to fix it in place, then walk around it. <b>Options</b> switches the look, contact shadows and room reflections; <b>Assembly</b> plays the build step by step.</li>
   </ol>
 
-  <footer>Needs Chrome on an Android phone with ARCore (Google Play Services for AR). Prefer it full size? Try <a href="yard.html">the backyard mode</a>. A planning model, not a structural design.</footer>
+  <footer>Needs Chrome on an Android phone with ARCore (Google Play Services for AR). Prefer it full size? Try <a href="yard.html">the backyard mode</a>. Photo wood: Poly Haven “Hinoki Planks” (CC0). A planning model, not a structural design.</footer>
 </main>
 
 <div id="overlay">
@@ -108,6 +159,29 @@
     <div class="chip" id="readout"></div>
   </div>
   <div class="ov-bottom">
+    <div class="ov-player" data-player hidden>
+      <div class="caption chip" data-caption>Step 1 / 15</div>
+      <div class="transport">
+        <button type="button" data-prev aria-label="Previous step">⏮</button>
+        <button type="button" class="play" data-play aria-label="Play or pause">▶</button>
+        <button type="button" data-next aria-label="Next step">⏭</button>
+        <input type="range" data-scrub min="0" max="1000" value="0" aria-label="Position in this step">
+      </div>
+    </div>
+    <div class="ov-panel" id="options" hidden>
+      <div class="row">
+        <div class="seg" data-looks role="group" aria-label="Look">
+          <button type="button" data-look="flat" aria-pressed="true">Flat</button>
+          <button type="button" data-look="baked" aria-pressed="false">Baked</button>
+          <button type="button" data-look="photo" aria-pressed="false">Photo</button>
+        </div>
+      </div>
+      <div class="row">
+        <label class="switch"><input type="checkbox" data-ao checked> Contact shadows</label>
+        <label class="switch"><input type="checkbox" id="refl" checked disabled> Room reflections</label>
+      </div>
+      <p class="note" id="reflNote">Waiting for the phone's light estimate…</p>
+    </div>
     <div class="row" id="presets">
       <button type="button" data-ratio="50">1:50</button>
       <button type="button" data-ratio="20">1:20</button>
@@ -116,9 +190,13 @@
     </div>
     <div class="row">
       <div class="seg" data-models role="group" aria-label="Model">
-        <button type="button" data-src="greenhouse.glb" aria-pressed="true">Finished</button>
-        <button type="button" data-src="frame.glb" aria-pressed="false">Frame</button>
+        <button type="button" data-model="greenhouse" aria-pressed="true">Finished</button>
+        <button type="button" data-model="frame" aria-pressed="false">Frame</button>
+        <button type="button" data-model="assembly" aria-pressed="false">Assembly</button>
       </div>
+    </div>
+    <div class="row">
+      <button type="button" id="optBtn" aria-expanded="false">Options</button>
       <button type="button" id="lock" data-locked="false" disabled>Lock</button>
       <button type="button" id="exit">Exit</button>
     </div>
@@ -132,13 +210,24 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { XREstimatedLight } from "three/addons/webxr/XREstimatedLight.js";
+import { TILES, WOOD_TILE, base, kindOf, surfaceUVs } from "./grain.js";
 
 const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.186.1/";
 const MIN_SCALE = 1 / 100, MAX_SCALE = 1, DEFAULT_SCALE = 1 / 20;
+// assembly steps (English titles of video/src/scenes/ch5.ts)
+const STEPS = [
+  ["materials", "The materials"], ["cut", "Cut at 15°"], ["template", "The end template"], ["plya", "Layer A, laid flat"],
+  ["plyb", "Layer B on top"], ["bolt", "Drill and bolt"], ["tie", "The tie beam"], ["feet", "The foundations"],
+  ["raise", "Raise the arches"], ["purlins", "Purlins and rails"], ["braces", "Bracing"], ["endwalls", "The end walls"],
+  ["dwarf", "The dwarf walls"], ["cladding", "The polycarbonate"], ["final", "Finished"],
+];
+const PHOTO_TINT = { plyB: [0.86, 0.83, 0.78], pt: [0.8, 0.82, 0.64], ptDark: [0.64, 0.65, 0.5], bench: [0.75, 0.68, 0.6] };
 const $ = (id) => document.getElementById(id);
+const all = (sel) => document.querySelectorAll(sel);
 const canvas = $("c"), stage = canvas.parentElement, overlay = $("overlay"), note = $("note"), hint = $("hint"), readout = $("readout");
 const startBtn = $("start"), lockBtn = $("lock");
 window.__three = THREE.REVISION;
+window.__debug = { get content() { return content; }, get mixer() { return mixer; }, get size() { return size; } }; // for the headless check
 
 // ---------- renderer, scene, preview camera ----------
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -190,40 +279,225 @@ reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.045, 0.058, 48).rotateX(-Mat
 reticle.add(new THREE.Mesh(new THREE.CircleGeometry(0.008, 20).rotateX(-Math.PI / 2), ringMat));
 scene.add(reticle);
 
+// ---------- looks: flat colours, Blender-baked tiles, photo plank ----------
+const texLoader = new THREE.TextureLoader();
+const texCache = {};
+function tex(file, color, size, mirrorV = false) {
+  return (texCache[file] ||= (() => {
+    const t = texLoader.load("tex/" + file, () => { pendingTex--; });
+    pendingTex++;
+    t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = mirrorV ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
+    t.repeat.set(1 / size[0], 1 / size[1]); // UVs are in metres; centred across the board
+    t.offset.set(0, 0.5);
+    t.anisotropy = 4;
+    return t;
+  })());
+}
+let pendingTex = 0, look = "flat", aoOn = true;
+const lookCache = new Map();
+function lookMaterial(flat, which) {
+  const name = base(flat.name), kind = kindOf(name);
+  if (which === "flat" || !kind) return flat;
+  const key = flat.uuid + which;
+  if (lookCache.has(key)) return lookCache.get(key);
+  const m = flat.clone();
+  const T = TILES[which];
+  if (kind === "wood") {
+    const photo = which === "photo";
+    m.map = tex(photo ? "plank.jpg" : WOOD_TILE[name] + ".jpg", true, T.wood, photo);
+    m.roughnessMap = tex(photo ? "plank_mr.jpg" : "wood_mr.jpg", false, T.wood, photo);
+    m.normalMap = tex(photo ? "plank_n.jpg" : "wood_n.jpg", false, T.wood, photo);
+    m.color.setRGB(...(photo && PHOTO_TINT[name] ? PHOTO_TINT[name] : [1, 1, 1]));
+    m.roughness = 1;
+    m.metalness = 0;
+    m.vertexColors = true; // end grain darker, a shade per board
+  } else if (kind === "steel") {
+    m.map = tex("steel.jpg", true, T.steel);
+    m.roughnessMap = m.metalnessMap = tex("steel_mr.jpg", false, T.steel);
+    m.normalMap = tex("steel_n.jpg", false, T.steel);
+    m.color.setRGB(...(name === "steel" ? [1, 1, 1] : [0.3, 0.32, 0.32]));
+    m.roughness = 1;
+    m.metalness = 0.85;
+  } else if (kind === "poly") {
+    m.normalMap = tex("twinwall_n.jpg", false, T.poly);
+    m.normalScale.set(0.6, 0.6);
+  }
+  m.aoMapIntensity = aoOn ? 1 : 0;
+  lookCache.set(key, m);
+  return m;
+}
+function applyLook(obj) {
+  obj.traverse((o) => { if (o.isMesh && o.userData.flat) o.material = lookMaterial(o.userData.flat, look); });
+}
+function setLook(which) {
+  look = which;
+  all("[data-looks] button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.look === which)));
+  if (content) applyLook(content);
+  window.__look = which;
+}
+function setAO(on) {
+  aoOn = on;
+  all("[data-ao]").forEach((i) => (i.checked = on));
+  const each = (m) => { if (m.aoMap) m.aoMapIntensity = on ? 1 : 0; };
+  lookCache.forEach(each);
+  Object.values(statics).forEach((p) => p.then?.((o) => o.traverse((x) => x.userData.flat && each(x.userData.flat))));
+}
+all("[data-looks] button").forEach((b) => b.addEventListener("click", () => setLook(b.dataset.look)));
+all("[data-ao]").forEach((i) => i.addEventListener("change", () => setAO(i.checked)));
+
 // ---------- models ----------
 const loader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath(THREE_URL + "examples/jsm/libs/draco/gltf/"));
-const cache = {};
-let content = null;
-const size = new THREE.Vector3(4.7, 2.87, 5.88);
+const uvGeo = new WeakMap(); // original geometry → copy with metre UVs (steps share geometry between parts)
+function prep(gltf) {
+  const obj = gltf.scene, preUV = !!obj.userData.grainUV;
+  let seed = 1;
+  obj.traverse((o) => {
+    if (!o.isMesh) return;
+    const flat = o.material, kind = kindOf(flat.name);
+    flat.vertexColors = false; // Flat = the colours as they were
+    o.userData.flat = flat;
+    if (kind && !preUV) { // assembly steps: metre UVs computed here (static models come preprocessed)
+      if (!uvGeo.has(o.geometry)) {
+        const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+        const { uv, color } = surfaceUVs(kind, g.attributes.position.array, seed++);
+        g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+        if (color) g.setAttribute("color", new THREE.BufferAttribute(color, 3));
+        uvGeo.set(o.geometry, g);
+      }
+      o.geometry = uvGeo.get(o.geometry);
+    }
+    const clear = flat.transparent;
+    o.castShadow = !clear;
+    o.receiveShadow = !clear;
+    if (clear) flat.depthWrite = false;
+  });
+  return gltf;
+}
+const statics = {};
+const loadStatic = (name) => (statics[name] ||= loader.loadAsync(name + ".glb").then((g) => prep(g).scene));
+const stepCache = {};
+const loadStep = (i) => (stepCache[i] ||= loader.loadAsync("steps/" + STEPS[i][0] + ".glb").then(prep));
 
-function load(src) {
-  return (cache[src] ||= loader.loadAsync(src).then((gltf) => {
-    gltf.scene.traverse((o) => {
-      if (!o.isMesh) return;
-      const clear = o.material.transparent;
-      o.castShadow = !clear;
-      o.receiveShadow = !clear;
-      if (clear) o.material.depthWrite = false;
-    });
-    return gltf.scene;
-  }));
+let content = null, current = "greenhouse";
+const size = new THREE.Vector3(4.7, 2.87, 5.88);
+const box = new THREE.Box3(), mid = new THREE.Vector3();
+let clipBelow = false; // assembly steps: hide everything under the model's ground plane (foot boards in their holes)
+const clipPlane = new THREE.Plane(), clipN = new THREE.Vector3(), clipQ = new THREE.Quaternion(), clipP = new THREE.Vector3();
+function updateClip() {
+  if (!clipBelow) { renderer.clippingPlanes = []; return; }
+  model.updateMatrixWorld();
+  model.getWorldQuaternion(clipQ);
+  model.getWorldPosition(clipP);
+  clipPlane.setFromNormalAndCoplanarPoint(clipN.set(0, 1, 0).applyQuaternion(clipQ), clipP);
+  renderer.clippingPlanes = [clipPlane];
 }
 
-async function showModel(src) {
-  document.querySelectorAll("[data-models] button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.src === src)));
-  const obj = await load(src);
+function mount(obj) {
   if (content) model.remove(content);
-  new THREE.Box3().setFromObject(obj).getSize(size);
   content = obj;
+  applyLook(obj);
   model.add(obj);
   contact.scale.set(size.x * 1.5, size.z * 1.5, 1);
   $("loading").hidden = true;
+  if (!renderer.xr.isPresenting) { // preview: keep the view direction, frame the new size
+    const span = Math.max(size.x, size.z, size.y * 1.6, 1), look = camera.position.clone().sub(controls.target).normalize();
+    controls.target.set(0, Math.min(size.y * 0.4, 1.2), 0);
+    controls.minDistance = span * 0.4;
+    controls.maxDistance = span * 6;
+    camera.position.copy(controls.target).addScaledVector(look, span * 2.75);
+  }
   updateReadout();
 }
-document.querySelectorAll("[data-models] button").forEach((b) => b.addEventListener("click", () => showModel(b.dataset.src)));
+
+async function showModel(name) {
+  current = name;
+  clipBelow = false;
+  all("[data-models] button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.model === name)));
+  all("[data-player]").forEach((p) => (p.hidden = name !== "assembly"));
+  all("[data-ao]").forEach((i) => (i.disabled = name === "assembly")); // the steps have no baked AO
+  if (name === "assembly") return showStep(stepIndex);
+  stopPlayer();
+  const obj = await loadStatic(name);
+  if (current !== name) return;
+  obj.position.set(0, 0, 0);
+  box.setFromObject(obj).getSize(size);
+  mount(obj);
+}
+all("[data-models] button").forEach((b) => b.addEventListener("click", () => showModel(b.dataset.model)));
+
+// ---------- assembly player ----------
+let stepIndex = 0, mixer = null, action = null, stepLen = 1, playing = false, advancing = false;
+async function showStep(i) {
+  const target = ((i % STEPS.length) + STEPS.length) % STEPS.length;
+  stepIndex = target;
+  setCaption("loading…");
+  const gltf = await loadStep(target);
+  if (current !== "assembly" || stepIndex !== target) return; // another step was chosen meanwhile
+  const obj = gltf.scene;
+  stepLen = obj.userData.seconds || gltf.animations[0]?.duration || 1;
+  mixer = new THREE.AnimationMixer(obj);
+  action = gltf.animations[0] ? mixer.clipAction(gltf.animations[0]) : null;
+  if (action) { action.setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
+  // centre it on the bounds of its final state. The ground stays at table level and the buried foot boards are
+  // clipped, except in the foundations step, whose soil cutaway is lifted so the block sits on the table.
+  obj.position.set(0, 0, 0);
+  seek(stepLen);
+  obj.updateMatrixWorld(true);
+  box.setFromObject(obj);
+  box.getCenter(mid);
+  const dig = STEPS[stepIndex][0] === "feet";
+  obj.position.set(-mid.x, dig ? -box.min.y : 0, -mid.z);
+  if (!dig) box.min.y = Math.max(box.min.y, 0);
+  box.getSize(size);
+  clipBelow = !dig;
+  seek(0);
+  mount(obj);
+  setCaption();
+  window.__step = STEPS[stepIndex][0];
+}
+// a LoopOnce action pauses itself when it reaches the end; reset it so setTime can move it again
+function seek(t) {
+  if (!mixer) return;
+  if (action) { action.reset(); action.play(); }
+  mixer.setTime(t);
+}
+function setCaption(extra) {
+  all("[data-caption]").forEach((c) => (c.textContent = `Step ${stepIndex + 1} / ${STEPS.length} · ${extra || STEPS[stepIndex][1]}`));
+}
+function setPlaying(on) {
+  playing = on;
+  all("[data-play]").forEach((b) => (b.textContent = on ? "⏸" : "▶"));
+  if (on && mixer && mixer.time >= stepLen - 0.01) seek(0);
+}
+function stopPlayer() { setPlaying(false); mixer = null; action = null; }
+all("[data-play]").forEach((b) => b.addEventListener("click", () => setPlaying(!playing)));
+all("[data-prev]").forEach((b) => b.addEventListener("click", () => showStep(stepIndex - 1)));
+all("[data-next]").forEach((b) => b.addEventListener("click", () => showStep(stepIndex + 1)));
+all("[data-scrub]").forEach((r) => r.addEventListener("input", () => {
+  setPlaying(false);
+  seek((r.value / 1000) * stepLen);
+}));
+function tickPlayer(dt) {
+  if (!mixer) return;
+  if (playing && !advancing) {
+    mixer.update(Math.min(dt, 0.1));
+    if (mixer.time >= stepLen - 1e-3) { // pause a moment on the finished step, then the next one
+      seek(stepLen);
+      if (stepIndex < STEPS.length - 1) {
+        advancing = true;
+        const next = stepIndex + 1;
+        setTimeout(async () => { try { if (playing && current === "assembly") await showStep(next); } finally { advancing = false; } }, 900);
+      } else setPlaying(false);
+    }
+  }
+  const v = String(Math.round(Math.min(1, mixer.time / stepLen) * 1000));
+  all("[data-scrub]").forEach((r) => { if (document.activeElement !== r) r.value = v; });
+}
 
 // ---------- light and contact shadow follow the model at any scale ----------
-let xrLight = null, estimating = false;
+let xrLight = null, estimating = false, reflOn = true;
 const centre = new THREE.Vector3(), dir = new THREE.Vector3();
 function fitShadow() {
   const s = model.scale.x;
@@ -249,20 +523,33 @@ function fitShadow() {
     sun.shadow.bias = -0.0003;
   }
 }
+function applyReflections() {
+  const ok = estimating && xrLight?.environment;
+  $("refl").disabled = !ok;
+  $("reflNote").textContent = ok ? "" : estimating ? "This phone gives a light estimate but no reflection map." :
+    session && !(session.enabledFeatures || []).includes("light-estimation") ? "Room reflections need light estimation, which this phone or browser didn't grant." : "Waiting for the phone's light estimate…";
+  scene.environment = ok && reflOn ? xrLight.environment : roomEnv;
+}
+$("refl").addEventListener("change", (e) => { reflOn = e.target.checked; applyReflections(); });
+$("optBtn").addEventListener("click", () => {
+  const panel = $("options"), open = panel.hidden;
+  panel.hidden = !open;
+  $("optBtn").setAttribute("aria-expanded", String(open));
+  $("optBtn").setAttribute("aria-pressed", String(open));
+});
 
 // ---------- readout and presets ----------
-function ratioOf(s) { return 1 / s; }
 function updateReadout() {
-  const s = model.scale.x, n = ratioOf(s), len = size.z * s;
+  const s = model.scale.x, n = 1 / s, len = size.z * s;
   const label = n < 1.05 ? "Life size" : "1:" + (n >= 10 ? Math.round(n) : n.toFixed(1));
   readout.textContent = renderer.xr.isPresenting && placed ? `${label} · ${len >= 1 ? len.toFixed(2) + " m" : Math.round(len * 100) + " cm"} long` : "";
-  document.querySelectorAll("#presets button").forEach((b) => b.setAttribute("aria-pressed", String(Math.abs(Number(b.dataset.ratio) - n) / n < 0.03)));
+  all("#presets button").forEach((b) => b.setAttribute("aria-pressed", String(Math.abs(Number(b.dataset.ratio) - n) / n < 0.03)));
 }
 function setScale(s) {
   model.scale.setScalar(THREE.MathUtils.clamp(s, MIN_SCALE, MAX_SCALE));
   updateReadout();
 }
-document.querySelectorAll("#presets button").forEach((b) => b.addEventListener("click", () => { if (!locked) setScale(1 / Number(b.dataset.ratio)); }));
+all("#presets button").forEach((b) => b.addEventListener("click", () => { if (!locked) setScale(1 / Number(b.dataset.ratio)); }));
 
 // ---------- AR session ----------
 let session = null, refSpace = null, hitSource = null, anchor = null, lastHit = null;
@@ -296,13 +583,13 @@ async function startAR() {
       xrLight.directionalLight.visible = false; // its direction drives our shadow-casting sun instead
       hemi.visible = false;
       estimating = true;
-      if (xrLight.environment) scene.environment = xrLight.environment;
+      applyReflections();
     });
     xrLight.addEventListener("estimationend", () => {
       scene.remove(xrLight);
       hemi.visible = true;
       estimating = false;
-      scene.environment = roomEnv;
+      applyReflections();
     });
   }
   renderer.xr.setReferenceSpaceType("local");
@@ -319,6 +606,7 @@ async function startAR() {
   setScale(DEFAULT_SCALE);
   setLocked(false);
   lockBtn.disabled = true;
+  applyReflections();
 }
 
 function endAR() {
@@ -335,6 +623,7 @@ function endAR() {
   model.scale.setScalar(1);
   model.visible = true;
   controls.enabled = true;
+  scene.environment = roomEnv;
   resize();
 }
 
@@ -345,7 +634,7 @@ function setLocked(on) {
   locked = on;
   lockBtn.dataset.locked = String(on);
   lockBtn.textContent = on ? "Unlock" : "Lock";
-  document.querySelectorAll("#presets button").forEach((b) => (b.disabled = on));
+  all("#presets button").forEach((b) => (b.disabled = on));
 }
 lockBtn.addEventListener("click", () => { if (placed) setLocked(!locked); });
 
@@ -423,7 +712,7 @@ function moveGesture() {
 
 overlay.addEventListener("beforexrselect", (e) => e.preventDefault()); // touches on the overlay are ours, not XR selects
 overlay.addEventListener("pointerdown", (e) => {
-  if (e.target.closest("button")) return;
+  if (e.target.closest("button, input, label, .ov-panel, .ov-player")) return;
   overlay.setPointerCapture?.(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
   beginGesture();
@@ -456,7 +745,9 @@ function resize() {
 }
 addEventListener("resize", resize);
 
+const clock = new THREE.Clock();
 renderer.setAnimationLoop((time, frame) => {
+  const dt = clock.getDelta();
   if (frame && hitSource) {
     const hits = frame.getHitTestResults(hitSource);
     lastHit = null;
@@ -474,13 +765,16 @@ renderer.setAnimationLoop((time, frame) => {
       : placed ? "Drag to move · pinch to resize · twist to turn · tap to re-place"
       : lastHit ? "Tap to place the greenhouse" : "Point at a table and move the phone slowly";
   } else controls.update();
+  tickPlayer(dt);
   fitShadow();
+  updateClip();
   renderer.render(scene, camera);
+  window.__texPending = pendingTex;
 });
 
 resize();
 checkSupport();
-showModel("greenhouse.glb").then(() => { window.__ready = true; }).catch((e) => {
+showModel("greenhouse").then(() => { window.__ready = true; }).catch((e) => {
   $("loading").textContent = "Couldn't load the model.";
   console.error(e);
 });

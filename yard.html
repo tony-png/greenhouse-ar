@@ -28,6 +28,7 @@
   .toggle { position: absolute; top: 12px; left: 12px; display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; z-index: 2; }
   .toggle button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.9rem; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
   .toggle button[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+  .toggle.looks { top: auto; bottom: 12px; }
   .ar { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin: 14px 0 6px; padding: 16px 20px; border: 0; border-radius: 14px;
         background: var(--leaf); color: var(--leaf-ink); font: 600 1.1rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
   .ar svg { width: 22px; height: 22px; }
@@ -52,8 +53,13 @@
 
   <div class="stage">
     <div class="toggle" role="group" aria-label="Model">
-      <button type="button" data-src="greenhouse.glb" aria-pressed="true">Finished</button>
-      <button type="button" data-src="frame.glb" aria-pressed="false">Frame only</button>
+      <button type="button" data-model="greenhouse" aria-pressed="true">Finished</button>
+      <button type="button" data-model="frame" aria-pressed="false">Frame only</button>
+    </div>
+    <div class="toggle looks" role="group" aria-label="Look">
+      <button type="button" data-look="flat" aria-pressed="true">Flat</button>
+      <button type="button" data-look="baked" aria-pressed="false">Blender-baked</button>
+      <button type="button" data-look="photo" aria-pressed="false">Photo wood</button>
     </div>
     <model-viewer id="mv" src="greenhouse.glb" alt="Wooden tunnel greenhouse with polycarbonate cladding"
       ar ar-modes="scene-viewer webxr quick-look" ar-placement="floor" ar-scale="fixed"
@@ -88,9 +94,13 @@
 </main>
 <script type="module">
   const mv = document.getElementById("mv"), ar = document.getElementById("ar"), note = document.getElementById("note");
+  // each model and look is its own file (core glTF with embedded textures), so Scene Viewer shows the same look
+  const pick = { model: "greenhouse", look: "flat" };
   document.querySelectorAll(".toggle button").forEach((b) => b.addEventListener("click", () => {
-    mv.src = b.dataset.src;
-    document.querySelectorAll(".toggle button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    const key = b.dataset.model ? "model" : "look";
+    pick[key] = b.dataset[key];
+    mv.src = pick.model + (pick.look === "flat" ? "" : "-" + pick.look) + ".glb";
+    b.parentElement.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
   }));
   ar.addEventListener("click", () => mv.activateAR());
   mv.addEventListener("load", () => {
