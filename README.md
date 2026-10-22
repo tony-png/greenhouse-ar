@@ -25,6 +25,23 @@ A scale model you place on a table (WebXR, three.js r186). The same controls wor
 
 It uses an `immersive-ar` session with hit-test (required) plus dom-overlay, anchors and light-estimation (optional). Without AR support the page falls back to the 3D preview.
 
+### Gus and Bolt
+
+Two characters live around the greenhouse, in tabletop mode and in the walk mode (`table.html?walk`), which starts at life size. Tap either of them to talk.
+
+- **Gus** (the gardener) works inside. He walks between six spots along the walls and at the doors. When you come close, he stops, waves and turns to face you. Tap him and he explains what he's working on.
+- **Bolt** (the robot) runs round to whichever side of the model you're on.
+  - At **life size** he follows you around the yard, about a step away. If you go inside, he waits in the porch, since the doors are shut.
+  - He finds his way with A* on a 20 cm grid. The grid holds the greenhouse walls, plus real obstacles seen by WebXR depth sensing: depth points between 0.2 and 1.8 m above the ground mark a cell as blocked, and points on the floor clear it.
+- **Depth sensing** (optional, `cpu-optimized`) also hides the model and the characters behind real things.
+  - Options can turn that off. It also has **Show what Bolt sees**, which draws the cells he considers blocked.
+  - A chip at the top says whether depth is on.
+
+`npc.js` holds both characters, the grid and the occlusion shader patch. `prep-npc.mjs` builds `npc/*.glb` from the CC0 sources:
+
+- the Quaternius "Farmer" ([poly.pizza](https://poly.pizza/m/7pn3R6hPvE))
+- Tomás Laulhé's "RobotExpressive", from the three.js examples, scaled to 0.6 m
+
 ## In your backyard: `yard.html`
 
 Life size, 1:1 on your lawn ([model-viewer](https://modelviewer.dev) 4.3.1, Scene Viewer). It offers the same three looks, each as a separate core-glTF file so Scene Viewer shows it too. You need a clear area of about 6 × 8 m.

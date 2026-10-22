@@ -95,11 +95,21 @@
   .ov-player .caption { text-align: center; }
   .ov-player .transport button { background: rgba(18, 24, 20, .72); color: #fff; border: 0; border-radius: 999px; width: 42px; height: 38px; padding: 0; }
   .ov-player .transport button.play { background: #4d7a3a; width: 50px; }
+  #depthChip { font-size: .8rem; padding: 5px 10px; }
+  #depthChip:empty { display: none; }
+
+  /* speech bubbles over Gus and Bolt (in the preview stage, or in the AR overlay) */
+  .bubbles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+  .bubble { position: absolute; left: 0; top: 0; width: max-content; max-width: min(250px, 66vw); background: #fffdf8; color: #1f2a22; border-radius: 14px;
+            padding: 7px 11px 8px; font: 14px/1.35 system-ui, sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+  .bubble[hidden] { display: none; }
+  .bubble b { display: block; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #4d7a3a; }
+  .bubble::after { content: ""; position: absolute; left: var(--tail, 50%); bottom: -7px; margin-left: -7px; border: 7px solid transparent; border-bottom: 0; border-top-color: #fffdf8; }
 </style>
 </head>
 <body>
 <main>
-  <a class="back" href="./">← Both AR modes</a>
+  <a class="back" href="./">← All AR modes</a>
   <h1>Greenhouse on your table</h1>
   <p class="lede">A scale model in AR. Place it on a table, size it from 1:100 up to life size, turn it, lock it, compare finishes, and play the assembly step by step.</p>
 
@@ -133,6 +143,9 @@
     <div class="ctl"><span>Lighting</span>
       <label class="switch"><input type="checkbox" data-ao checked> Contact shadows</label>
     </div>
+    <div class="ctl"><span>Gus and Bolt (tap them to talk)</span>
+      <label class="switch"><input type="checkbox" data-npc checked> Characters</label>
+    </div>
   </div>
 
   <button class="ar" id="start" type="button" disabled>
@@ -148,6 +161,7 @@
     <li>Tap to place the model (1:20, about 29 cm long). Tap again to move it somewhere else.</li>
     <li>Drag to slide it, pinch to resize, twist two fingers to turn it, or use the scale buttons.</li>
     <li>Tap <b>Lock</b> to fix it in place, then walk around it. <b>Options</b> switches the look, contact shadows and room reflections; <b>Assembly</b> plays the build step by step.</li>
+    <li>Gus the gardener works inside and Bolt the robot runs round to whichever side you're on. Tap either of them to talk. At <b>Life size</b>, Bolt follows you around the yard.</li>
   </ol>
 
   <footer>Needs Chrome on an Android phone with ARCore (Google Play Services for AR). Prefer it full size? Try <a href="yard.html">the backyard mode</a>. Photo wood: Poly Haven “Hinoki Planks” (CC0). A planning model, not a structural design.</footer>
@@ -157,6 +171,7 @@
   <div class="ov-top">
     <div class="chip" id="hint">Point at a table and move the phone slowly</div>
     <div class="chip" id="readout"></div>
+    <div class="chip" id="depthChip"></div>
   </div>
   <div class="ov-bottom">
     <div class="ov-player" data-player hidden>
@@ -181,6 +196,14 @@
         <label class="switch"><input type="checkbox" id="refl" checked disabled> Room reflections</label>
       </div>
       <p class="note" id="reflNote">Waiting for the phone's light estimate…</p>
+      <div class="row">
+        <label class="switch"><input type="checkbox" data-npc checked> Characters</label>
+        <label class="switch"><input type="checkbox" id="occl" checked disabled> Hide behind real things</label>
+      </div>
+      <div class="row">
+        <label class="switch"><input type="checkbox" id="see" disabled> Show what Bolt sees</label>
+      </div>
+      <p class="note" id="depthNote"></p>
     </div>
     <div class="row" id="presets">
       <button type="button" data-ratio="50">1:50</button>
@@ -203,6 +226,14 @@
   </div>
 </div>
 
+<script>
+  if (new URLSearchParams(location.search).has("walk")) { // same page, life-size wording
+    document.title = "Greenhouse · walk with Gus and Bolt";
+    document.querySelector("h1").textContent = "Walk with Gus and Bolt";
+    document.querySelector(".lede").textContent = "The greenhouse at life size in your yard. Gus the gardener works inside; Bolt the robot follows you around, and with depth sensing he walks around real obstacles and hides behind real things.";
+    document.getElementById("start").lastChild.textContent = " Start the walk";
+  }
+</script>
 <script type="module">
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -211,9 +242,11 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { XREstimatedLight } from "three/addons/webxr/XREstimatedLight.js";
 import { TILES, WOOD_TILE, base, kindOf, surfaceUVs } from "./grain.js";
+import { Gardener, Robot, NavGrid, HOUSE, occlusion } from "./npc.js";
 
 const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.186.1/";
-const MIN_SCALE = 1 / 100, MAX_SCALE = 1, DEFAULT_SCALE = 1 / 20;
+const WALK = new URLSearchParams(location.search).has("walk"); // table.html?walk: start life size, in the yard
+const MIN_SCALE = 1 / 100, MAX_SCALE = 1, DEFAULT_SCALE = WALK ? 1 : 1 / 20;
 // assembly steps (English titles of video/src/scenes/ch5.ts)
 const STEPS = [
   ["materials", "The materials"], ["cut", "Cut at 15°"], ["template", "The end template"], ["plya", "Layer A, laid flat"],
@@ -227,7 +260,8 @@ const all = (sel) => document.querySelectorAll(sel);
 const canvas = $("c"), stage = canvas.parentElement, overlay = $("overlay"), note = $("note"), hint = $("hint"), readout = $("readout");
 const startBtn = $("start"), lockBtn = $("lock");
 window.__three = THREE.REVISION;
-window.__debug = { get content() { return content; }, get mixer() { return mixer; }, get size() { return size; } }; // for the headless check
+window.__debug = { get content() { return content; }, get mixer() { return mixer; }, get size() { return size; }, get cast() { return cast; },
+  where(i) { const c = cast[i], v = c.root.localToWorld(new THREE.Vector3(0, c.height * 0.6, 0)).project(camera); return { x: (v.x + 1) / 2 * stage.clientWidth, y: (1 - v.y) / 2 * stage.clientHeight }; } }; // for the headless check
 
 // ---------- renderer, scene, preview camera ----------
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -275,8 +309,10 @@ const reticle = new THREE.Group();
 reticle.matrixAutoUpdate = false;
 reticle.visible = false;
 const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
-reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.045, 0.058, 48).rotateX(-Math.PI / 2), ringMat));
-reticle.add(new THREE.Mesh(new THREE.CircleGeometry(0.008, 20).rotateX(-Math.PI / 2), ringMat));
+const ring = new THREE.Group();
+ring.add(new THREE.Mesh(new THREE.RingGeometry(0.045, 0.058, 48).rotateX(-Math.PI / 2), ringMat));
+ring.add(new THREE.Mesh(new THREE.CircleGeometry(0.008, 20).rotateX(-Math.PI / 2), ringMat));
+reticle.add(ring);
 scene.add(reticle);
 
 // ---------- looks: flat colours, Blender-baked tiles, photo plank ----------
@@ -417,6 +453,7 @@ async function showModel(name) {
   all("[data-models] button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.model === name)));
   all("[data-player]").forEach((p) => (p.hidden = name !== "assembly"));
   all("[data-ao]").forEach((i) => (i.disabled = name === "assembly")); // the steps have no baked AO
+  npcs.visible = npcOn && name !== "assembly";
   if (name === "assembly") return showStep(stepIndex);
   stopPlayer();
   const obj = await loadStatic(name);
@@ -564,12 +601,14 @@ async function checkSupport() {
 
 async function startAR() {
   overlay.classList.add("on");
+  const init = { requiredFeatures: ["hit-test"], optionalFeatures: ["dom-overlay", "anchors", "light-estimation"], domOverlay: { root: overlay } };
   try {
-    session = await navigator.xr.requestSession("immersive-ar", {
-      requiredFeatures: ["hit-test"],
-      optionalFeatures: ["dom-overlay", "anchors", "light-estimation"],
-      domOverlay: { root: overlay },
-    });
+    try {
+      session = await navigator.xr.requestSession("immersive-ar", { ...init, optionalFeatures: [...init.optionalFeatures, "depth-sensing"],
+        depthSensing: { usagePreference: ["cpu-optimized"], dataFormatPreference: ["luminance-alpha", "float32"] } });
+    } catch {
+      session = await navigator.xr.requestSession("immersive-ar", init);
+    }
   } catch (e) {
     overlay.classList.remove("on");
     note.textContent = "AR couldn't start (" + (e.message || e.name) + "). Check that Google Play Services for AR is installed.";
@@ -599,6 +638,10 @@ async function startAR() {
   session.addEventListener("end", endAR);
   if (!session.domOverlayState) session.addEventListener("select", () => { if (!locked) wantPlace = true; }); // no overlay: tap = place
   controls.enabled = false;
+  overlay.prepend(bubbles);
+  depthOn = (session.enabledFeatures || []).includes("depth-sensing") && session.depthUsage === "cpu-optimized";
+  depthLive = false;
+  depthChip.textContent = depthOn ? "Depth: starting…" : "Depth: off on this phone";
   placed = locked = false;
   model.visible = false;
   model.position.set(0, 0, 0);
@@ -615,6 +658,10 @@ function endAR() {
   session = null;
   placed = locked = wantPlace = false;
   overlay.classList.remove("on");
+  stage.append(bubbles);
+  depthOn = depthLive = false;
+  occlusion.uniforms.uOcclude.value = 0;
+  seeMesh.visible = false;
   reticle.visible = false;
   root.matrix.identity();
   root.matrixWorldNeedsUpdate = true;
@@ -649,10 +696,15 @@ function placeAt(hit, pose) {
   root.matrixWorldNeedsUpdate = true;
   root.updateMatrixWorld(true);
   model.position.set(0, 0, 0);
-  if (!placed) { // first placement: turn it so you see it the way the preview shows it
+  const life = model.scale.x > 0.5;
+  if (!placed) { // first placement: turn it so you see it the way the preview shows it, or at life size, porch first
     xrView().getWorldPosition(camPos);
     root.worldToLocal(camPos);
-    model.rotation.y = Math.atan2(camPos.x, camPos.z) - Math.atan2(-10.2, 11.6);
+    model.rotation.y = life ? Math.atan2(-camPos.x, -camPos.z) : Math.atan2(camPos.x, camPos.z) - Math.atan2(-10.2, 11.6);
+  }
+  if (life) { // life size: the tapped spot is the front edge of the gravel, not the middle of the greenhouse
+    const a = model.rotation.y;
+    model.position.set(HOUSE.padZ * Math.sin(a), 0, HOUSE.padZ * Math.cos(a));
   }
   model.visible = true;
   placed = true;
@@ -729,11 +781,178 @@ function pointerEnd(e) {
   if (!p) return;
   const tap = pointers.size === 1 && performance.now() - p.t0 < 300 && Math.hypot(p.x - p.x0, p.y - p.y0) < 10 && !(gesture && gesture.moved);
   pointers.delete(e.pointerId);
-  if (tap && !locked && e.type === "pointerup") wantPlace = true;
+  if (tap && e.type === "pointerup" && placed && talkAt(p.x, p.y, xrView(), innerWidth, innerHeight)) { /* talked */ }
+  else if (tap && !locked && e.type === "pointerup") wantPlace = true;
   beginGesture(); // the remaining finger(s) start a fresh gesture
 }
 overlay.addEventListener("pointerup", pointerEnd);
 overlay.addEventListener("pointercancel", pointerEnd);
+
+// ---------- Gus and Bolt ----------
+const npcs = new THREE.Group(); // in the model, so they scale with it
+model.add(npcs);
+const grid = new NavGrid(20, 0.2, 0.2);
+const cast = [];
+let gus = null, bolt = null, npcOn = true;
+const bubbles = document.createElement("div");
+bubbles.className = "bubbles";
+stage.append(bubbles);
+function loadCast() {
+  Promise.all([loader.loadAsync("npc/farmer.glb"), loader.loadAsync("npc/robot.glb")]).then(([f, r]) => {
+    gus = new Gardener(f);
+    bolt = new Robot(r);
+    for (const c of [gus, bolt]) {
+      cast.push(c);
+      npcs.add(c.root);
+      c.bubble = Object.assign(document.createElement("div"), { className: "bubble", hidden: true });
+      c.bubble.innerHTML = `<b>${c.name}</b><span></span>`;
+      bubbles.append(c.bubble);
+    }
+    window.__npc = true;
+  }).catch((e) => console.error("characters", e));
+}
+function setNpc(on) {
+  npcOn = on;
+  all("[data-npc]").forEach((i) => (i.checked = on));
+  npcs.visible = on && current !== "assembly";
+}
+all("[data-npc]").forEach((i) => i.addEventListener("change", () => setNpc(i.checked)));
+
+const userAt = new THREE.Vector3(), camAt = new THREE.Vector3(), at = new THREE.Vector3();
+function viewer() { return renderer.xr.isPresenting ? xrView() : camera; }
+const lifeSize = () => renderer.xr.isPresenting && model.scale.x > 0.5; // the preview is unscaled but not "life size"
+function npcContext(dt) {
+  const life = lifeSize();
+  viewer().getWorldPosition(camAt);
+  userAt.copy(camAt);
+  model.worldToLocal(userAt);
+  return { dt, now: clock.elapsedTime, grid, user: { x: userAt.x, z: userAt.z }, life, depth: depthLive && life };
+}
+function tickCast(dt) {
+  if (!cast.length || !npcs.visible) return;
+  const ctx = npcContext(Math.min(dt, 0.1));
+  // Gus stops for you when you come close: inside the greenhouse at life size, or leaning in over the table
+  const near = ctx.life ? Math.hypot(ctx.user.x - gus.pos.x, ctx.user.z - gus.pos.z) < 2.4
+    : renderer.xr.isPresenting && gus.root.getWorldPosition(at).distanceTo(camAt) < 0.3;
+  gus.think({ ...ctx, near });
+  bolt.think(ctx);
+}
+// a tap near a character on screen (between its feet and its head) makes it talk
+const ft = new THREE.Vector3(), hd = new THREE.Vector3();
+function talkAt(x, y, cam, w, h) {
+  if (!cast.length || !npcs.visible) return false;
+  let best = null, bestD = Infinity;
+  for (const c of cast) {
+    c.root.localToWorld(ft.set(0, 0.1 * c.height, 0)).project(cam);
+    c.root.localToWorld(hd.set(0, c.height, 0)).project(cam);
+    if (ft.z > 1 || hd.z > 1) continue;
+    const ax = (ft.x + 1) / 2 * w, ay = (1 - ft.y) / 2 * h, bx = (hd.x + 1) / 2 * w, by = (1 - hd.y) / 2 * h;
+    const len2 = (bx - ax) ** 2 + (by - ay) ** 2 || 1, t = THREE.MathUtils.clamp(((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / len2, 0, 1);
+    const d = Math.hypot(x - ax - t * (bx - ax), y - ay - t * (by - ay));
+    if (d < Math.max(36, 0.35 * Math.sqrt(len2)) && d < bestD) { best = c; bestD = d; }
+  }
+  if (!best) return false;
+  best.tap(clock.elapsedTime, npcContext(0));
+  return true;
+}
+function placeBubbles() {
+  const cam = viewer(), ar = renderer.xr.isPresenting, w = ar ? innerWidth : stage.clientWidth, h = ar ? innerHeight : stage.clientHeight;
+  const shown = [];
+  for (const c of cast) {
+    const show = npcs.visible && model.visible && clock.elapsedTime < c.speechUntil;
+    if (show) {
+      c.root.localToWorld(hd.set(0, c.height + 0.12, 0)).project(cam);
+      if (hd.z > 1 || Math.abs(hd.x) > 1.2 || Math.abs(hd.y) > 1.2) { c.bubble.hidden = true; continue; }
+      if (c.bubble.lastChild.textContent !== c.speech) c.bubble.lastChild.textContent = c.speech;
+      c.bubble.hidden = false;
+      const x = (hd.x + 1) / 2 * w, y = (1 - hd.y) / 2 * h, bw = c.bubble.offsetWidth, bh = c.bubble.offsetHeight;
+      const left = THREE.MathUtils.clamp(x - bw / 2, 8, w - bw - 8);
+      c.bubble.style.setProperty("--tail", THREE.MathUtils.clamp(x - left, 14, bw - 14) + "px");
+      shown.push({ c, left, top: y - bh - 10, bw, bh });
+    } else if (!c.bubble.hidden) c.bubble.hidden = true;
+  }
+  shown.sort((a, b) => b.top - a.top); // lowest first; anything overlapping it moves up
+  for (let i = 1; i < shown.length; i++) for (let j = 0; j < i; j++) {
+    const a = shown[i], b = shown[j];
+    if (a.left < b.left + b.bw && b.left < a.left + a.bw && a.top < b.top + b.bh && b.top < a.top + a.bh) a.top = b.top - a.bh - 6;
+  }
+  for (const s of shown) s.c.bubble.style.transform = `translate(${s.left}px, ${Math.max(8, s.top)}px)`;
+}
+// preview: a click (not a drag) on a character
+let downAt = null;
+canvas.addEventListener("pointerdown", (e) => { downAt = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+canvas.addEventListener("pointerup", (e) => {
+  if (!downAt || renderer.xr.isPresenting) return;
+  const r = canvas.getBoundingClientRect();
+  if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6 && performance.now() - downAt.t < 400) talkAt(e.clientX - r.left, e.clientY - r.top, camera, r.width, r.height);
+  downAt = null;
+});
+
+// ---------- depth sensing: real things hide the model, and (at life size) Bolt maps real obstacles ----------
+let depthOn = false, depthLive = false, occlOn = true, seeOn = false, patchTimer = 0, fadeTimer = 0, seeTimer = 0;
+const depthChip = $("depthChip");
+const SEE_MAX = 3000;
+const seeMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.17, 0.17).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.55, depthWrite: false }), SEE_MAX);
+seeMesh.visible = false;
+seeMesh.frustumCulled = false;
+model.add(seeMesh);
+$("occl").addEventListener("change", (e) => { occlOn = e.target.checked; });
+$("see").addEventListener("change", (e) => { seeOn = e.target.checked; seeMesh.visible = seeOn; });
+const invProj = new THREE.Matrix4(), viewWorld = new THREE.Matrix4(), toModel = new THREE.Matrix4(), pt = new THREE.Vector3();
+function readDepth(frame, dt) {
+  const view = frame.getViewerPose(refSpace)?.views[0];
+  let info = null;
+  try { info = view && frame.getDepthInformation(view); } catch { info = null; }
+  const life = lifeSize();
+  if (info && !depthLive) {
+    depthLive = true;
+    $("occl").disabled = false;
+  }
+  $("see").disabled = !(depthLive && life);
+  depthChip.textContent = depthLive ? (life ? "Depth on · Bolt sees real obstacles" : "Depth on") : "Depth: waiting…";
+  $("depthNote").textContent = depthLive ? "" : "Depth sensing hasn't sent any data yet.";
+  if (!info) return;
+  occlusion.upload(info);
+  const vp = renderer.xr.getBaseLayer?.()?.getViewport(view) || session.renderState.baseLayer?.getViewport(view);
+  if (vp) occlusion.uniforms.uScreen.value.set(vp.width, vp.height);
+  occlusion.uniforms.uOcclude.value = occlOn ? 1 : 0;
+  if ((patchTimer -= dt) <= 0) { // new looks, steps and characters get the occlusion test as they appear
+    patchTimer = 0.5;
+    model.traverse((o) => { if (o.isMesh && o !== seeMesh) [].concat(o.material).forEach((m) => occlusion.patch(m)); });
+  }
+  if (!life || !placed) return;
+  // a coarse grid of depth samples → points in the greenhouse frame: low ones are floor, the rest are in the way
+  invProj.fromArray(view.projectionMatrix).invert();
+  viewWorld.fromArray(view.transform.matrix);
+  model.updateMatrixWorld();
+  toModel.copy(model.matrixWorld).invert().multiply(viewWorld);
+  viewer().getWorldPosition(camAt);
+  model.worldToLocal(userAt.copy(camAt));
+  for (let gy = 0; gy < 24; gy++) for (let gx = 0; gx < 32; gx++) {
+    const u = (gx + 0.5) / 32, v = (gy + 0.5) / 24, d = info.getDepthInMeters(u, v);
+    if (!(d > 0.3 && d < 6)) continue;
+    pt.set(u * 2 - 1, 1 - v * 2, -1).applyMatrix4(invProj);
+    pt.multiplyScalar(d / -pt.z).applyMatrix4(toModel);
+    if (Math.hypot(pt.x - userAt.x, pt.z - userAt.z) < 0.6) continue; // your own feet
+    if (pt.y > 0.2 && pt.y < 1.8) grid.observe(pt.x, pt.z, true);
+    else if (Math.abs(pt.y) < 0.1) grid.observe(pt.x, pt.z, false);
+  }
+  if ((fadeTimer += dt) > 0.25) { grid.fade(fadeTimer); fadeTimer = 0; }
+  if (seeOn && (seeTimer -= dt) <= 0) {
+    seeTimer = 0.3;
+    let k = 0;
+    const m4 = new THREE.Matrix4();
+    for (let i = 0; i < grid.seen.length && k < SEE_MAX; i++) {
+      if (grid.seen[i] < 0.5) continue;
+      const x = grid.cx(i), z = grid.cz(i);
+      if (Math.hypot(x - userAt.x, z - userAt.z) > 12) continue;
+      seeMesh.setMatrixAt(k++, m4.makeTranslation(x, 0.02, z));
+    }
+    seeMesh.count = k;
+    seeMesh.instanceMatrix.needsUpdate = true;
+  }
+}
 
 // ---------- loop ----------
 function resize() {
@@ -761,20 +980,26 @@ renderer.setAnimationLoop((time, frame) => {
       if (p) { root.matrix.fromArray(p.transform.matrix); root.matrixWorldNeedsUpdate = true; }
     }
     reticle.visible = !!lastHit && !locked && !(gesture && pointers.size);
-    hint.textContent = locked ? "Locked in place. Walk around it."
-      : placed ? "Drag to move · pinch to resize · twist to turn · tap to re-place"
-      : lastHit ? "Tap to place the greenhouse" : "Point at a table and move the phone slowly";
+    const life = model.scale.x > 0.5;
+    ring.scale.setScalar(life ? 4 : 1);
+    hint.textContent = locked ? (life ? "Locked. Walk around: Bolt follows you. Tap Gus or Bolt to talk." : "Locked in place. Walk around it.")
+      : placed ? (life ? "Tap Lock, then go for a walk · drag to move · twist to turn" : "Drag to move · pinch to resize · twist to turn · tap to re-place")
+      : lastHit ? (life ? "Tap where the front of the greenhouse should be" : "Tap to place the greenhouse")
+      : life ? "Point at the ground and move the phone slowly" : "Point at a table and move the phone slowly";
+    if (depthOn) readDepth(frame, dt);
   } else controls.update();
+  if (!renderer.xr.isPresenting || placed) tickCast(dt);
   tickPlayer(dt);
   fitShadow();
   updateClip();
   renderer.render(scene, camera);
+  placeBubbles();
   window.__texPending = pendingTex;
 });
 
 resize();
 checkSupport();
-showModel("greenhouse").then(() => { window.__ready = true; }).catch((e) => {
+showModel("greenhouse").then(() => { window.__ready = true; loadCast(); }).catch((e) => {
   $("loading").textContent = "Couldn't load the model.";
   console.error(e);
 });

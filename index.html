@@ -33,6 +33,7 @@
   .go { margin-top: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--leaf); color: var(--leaf-ink);
         border-radius: 12px; padding: 13px 16px; font-weight: 600; }
   a.mode.second .go { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
+  @media (min-width: 640px) { a.mode.walk { grid-column: 1 / -1; } }
   .facts { margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .fact { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
   .fact b { display: block; font-size: 1.15rem; }
@@ -64,6 +65,12 @@
       <h2>In your backyard</h2>
       <p>Full size on your lawn: see the real footprint, walk around it and step inside, in flat colours, baked or photo wood.</p>
       <span class="go">Open backyard mode →</span>
+    </a>
+    <a class="mode second walk" href="table.html?walk">
+      <span class="tag">Life size · with characters</span>
+      <h2>Walk with Gus and Bolt</h2>
+      <p>Put the greenhouse in your yard and go for a walk. Gus the gardener works inside and tells you how it's built; Bolt the robot follows you around, walks around real obstacles and hides behind real things on phones with depth sensing.</p>
+      <span class="go">Start the walk →</span>
     </a>
   </div>
 
