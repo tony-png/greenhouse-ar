@@ -726,9 +726,9 @@ let gesture = null;
 const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(), hitPoint = new THREE.Vector3();
 const rootQ = new THREE.Quaternion(), rootPos = new THREE.Vector3(), rootScale = new THREE.Vector3();
 
-function onTable(x, y, out) { // screen point → point on the plane the model stands on (world space)
-  ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
-  raycaster.setFromCamera(ndc, xrView());
+function onTable(x, y, out, cam = xrView(), w = innerWidth, h = innerHeight) { // screen point → point on the plane the model stands on (world space)
+  ndc.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
+  raycaster.setFromCamera(ndc, cam);
   root.matrixWorld.decompose(rootPos, rootQ, rootScale);
   plane.setFromNormalAndCoplanarPoint(up.set(0, 1, 0).applyQuaternion(rootQ), rootPos);
   return raycaster.ray.intersectPlane(plane, out);
@@ -736,7 +736,12 @@ function onTable(x, y, out) { // screen point → point on the plane the model s
 
 function beginGesture() {
   const pts = [...pointers.values()];
+  if (gesture?.kind === "npc") endCarry();
   gesture = null;
+  if (placed && pts.length === 1) { // a finger on Gus or Bolt carries them, locked or not
+    const c = pickAt(pts[0].x, pts[0].y, xrView(), innerWidth, innerHeight);
+    if (c) { gesture = { kind: "npc", c, moved: false, x0: pts[0].x, y0: pts[0].y }; return; }
+  }
   if (!placed || locked) return;
   if (pts.length === 1) {
     const p = onTable(pts[0].x, pts[0].y, new THREE.Vector3());
@@ -748,6 +753,7 @@ function beginGesture() {
 }
 
 function moveGesture() {
+  if (gesture?.kind === "npc") { const p = [...pointers.values()][0]; if (p) carry(gesture, p.x, p.y); return; }
   if (!gesture || locked) return;
   const pts = [...pointers.values()];
   if (gesture.kind === "drag" && pts.length === 1) {
@@ -835,13 +841,17 @@ function tickCast(dt) {
   // Gus stops for you when you come close: inside the greenhouse at life size, or leaning in over the table
   const near = ctx.life ? Math.hypot(ctx.user.x - gus.pos.x, ctx.user.z - gus.pos.z) < 2.4
     : renderer.xr.isPresenting && gus.root.getWorldPosition(at).distanceTo(camAt) < 0.3;
+  if (ctx.life) { // walking into them pushes them aside
+    gus.shove(ctx.user, ctx.dt, ctx.now, grid.doorWall, grid);
+    bolt.shove(ctx.user, ctx.dt, ctx.now, grid.wall, grid);
+  }
   gus.think({ ...ctx, near });
   bolt.think(ctx);
 }
-// a tap near a character on screen (between its feet and its head) makes it talk
+// the character drawn near a screen point (between its feet and its head), if any
 const ft = new THREE.Vector3(), hd = new THREE.Vector3();
-function talkAt(x, y, cam, w, h) {
-  if (!cast.length || !npcs.visible) return false;
+function pickAt(x, y, cam, w, h) {
+  if (!cast.length || !npcs.visible) return null;
   let best = null, bestD = Infinity;
   for (const c of cast) {
     c.root.localToWorld(ft.set(0, 0.1 * c.height, 0)).project(cam);
@@ -852,9 +862,29 @@ function talkAt(x, y, cam, w, h) {
     const d = Math.hypot(x - ax - t * (bx - ax), y - ay - t * (by - ay));
     if (d < Math.max(36, 0.35 * Math.sqrt(len2)) && d < bestD) { best = c; bestD = d; }
   }
-  if (!best) return false;
-  best.tap(clock.elapsedTime, npcContext(0));
-  return true;
+  return best;
+}
+function talkAt(x, y, cam, w, h) { // a tap on a character makes it talk
+  const c = pickAt(x, y, cam, w, h);
+  if (c) c.tap(clock.elapsedTime, npcContext(0));
+  return !!c;
+}
+// carrying: past a small slop the character is picked up and follows the finger over the floor, keeping the
+// offset between where the finger landed and its feet
+const floorAt = new THREE.Vector3();
+function carry(g, x, y, cam, w, h) {
+  if (!g.moved) {
+    if (Math.hypot(x - g.x0, y - g.y0) < 10) return;
+    g.moved = true;
+    g.c.grab();
+  }
+  if (!onTable(x, y, floorAt, cam, w, h)) return;
+  model.worldToLocal(floorAt);
+  g.off ||= { x: g.c.pos.x - floorAt.x, z: g.c.pos.z - floorAt.z };
+  g.c.drag(floorAt.x + g.off.x, floorAt.z + g.off.z, grid);
+}
+function endCarry() {
+  if (gesture?.kind === "npc" && gesture.c.held) gesture.c.drop(clock.elapsedTime);
 }
 function placeBubbles() {
   const cam = viewer(), ar = renderer.xr.isPresenting, w = ar ? innerWidth : stage.clientWidth, h = ar ? innerHeight : stage.clientHeight;
@@ -879,11 +909,26 @@ function placeBubbles() {
   }
   for (const s of shown) s.c.bubble.style.transform = `translate(${s.left}px, ${Math.max(8, s.top)}px)`;
 }
-// preview: a click (not a drag) on a character
-let downAt = null;
-canvas.addEventListener("pointerdown", (e) => { downAt = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+// preview: a click on a character talks, a drag carries it (and the orbit controls sit that one out)
+let downAt = null, held = null;
+canvas.addEventListener("pointerdown", (e) => {
+  downAt = { x: e.clientX, y: e.clientY, t: performance.now() };
+  if (renderer.xr.isPresenting) return;
+  const r = canvas.getBoundingClientRect(), c = pickAt(e.clientX - r.left, e.clientY - r.top, camera, r.width, r.height);
+  if (!c) return;
+  held = { c, moved: false, x0: e.clientX - r.left, y0: e.clientY - r.top };
+  controls.enabled = false; // runs before OrbitControls' own listener (capture phase)
+  canvas.setPointerCapture(e.pointerId);
+}, { capture: true });
+canvas.addEventListener("pointermove", (e) => {
+  if (!held) return;
+  const r = canvas.getBoundingClientRect();
+  carry(held, e.clientX - r.left, e.clientY - r.top, camera, r.width, r.height);
+});
 canvas.addEventListener("pointerup", (e) => {
-  if (!downAt || renderer.xr.isPresenting) return;
+  const was = held;
+  if (held) { if (held.c.held) held.c.drop(clock.elapsedTime); held = null; controls.enabled = true; }
+  if (!downAt || renderer.xr.isPresenting || was?.moved) { downAt = null; return; }
   const r = canvas.getBoundingClientRect();
   if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6 && performance.now() - downAt.t < 400) talkAt(e.clientX - r.left, e.clientY - r.top, camera, r.width, r.height);
   downAt = null;
@@ -901,6 +946,7 @@ model.add(seeMesh);
 $("occl").addEventListener("change", (e) => { occlOn = e.target.checked; });
 $("see").addEventListener("change", (e) => { seeOn = e.target.checked; seeMesh.visible = seeOn; });
 const invProj = new THREE.Matrix4(), viewWorld = new THREE.Matrix4(), toModel = new THREE.Matrix4(), pt = new THREE.Vector3();
+const viewInv = new THREE.Matrix4(), gq = new THREE.Quaternion(), gp = new THREE.Vector3(), gn = new THREE.Vector3();
 function readDepth(frame, dt) {
   const view = frame.getViewerPose(refSpace)?.views[0];
   let info = null;
@@ -918,6 +964,14 @@ function readDepth(frame, dt) {
   const vp = xrView().viewport; // in pixels, set by three for either kind of XR layer
   if (vp && vp.z > 0) occlusion.uniforms.uScreen.value.set(vp.z, vp.w);
   occlusion.uniforms.uOcclude.value = occlOn ? 1 : 0;
+  // the model's ground plane in this view's space, so the shader can go easy on the floor it stands on
+  viewInv.fromArray(view.transform.inverse.matrix);
+  model.updateMatrixWorld();
+  model.getWorldQuaternion(gq);
+  model.getWorldPosition(gp).applyMatrix4(viewInv);
+  gn.set(0, 1, 0).applyQuaternion(gq).transformDirection(viewInv);
+  occlusion.uniforms.uGround.value.set(gn.x, gn.y, gn.z, -gn.dot(gp));
+  occlusion.uniforms.uFloor.value.set(life ? 0.06 : 0.01, life ? 0.25 : 0.06);
   if ((patchTimer -= dt) <= 0) { // new looks, steps and characters get the occlusion test as they appear
     patchTimer = 0.5;
     model.traverse((o) => { if (o.isMesh && o !== seeMesh) [].concat(o.material).forEach((m) => occlusion.patch(m)); });
@@ -994,7 +1048,7 @@ renderer.setAnimationLoop((time, frame) => {
     reticle.visible = !!lastHit && !locked && !(gesture && pointers.size);
     const life = model.scale.x > 0.5;
     ring.scale.setScalar(life ? 4 : 1);
-    hint.textContent = locked ? (life ? "Locked. Walk around: Bolt follows you. Tap Gus or Bolt to talk." : "Locked in place. Walk around it.")
+    hint.textContent = locked ? (life ? "Locked. Bolt follows you · tap Gus or Bolt to talk · drag them to move them" : "Locked in place. Walk around it.")
       : placed ? (life ? "Tap Lock, then go for a walk · drag to move · twist to turn" : "Drag to move · pinch to resize · twist to turn · tap to re-place")
       : lastHit ? (life ? "Tap where the front of the greenhouse should be" : "Tap to place the greenhouse")
       : life ? "Point at the ground and move the phone slowly" : "Point at a table and move the phone slowly";

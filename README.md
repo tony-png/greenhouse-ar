@@ -33,7 +33,12 @@ Two characters live around the greenhouse, in tabletop mode and in the walk mode
 - **Bolt** (the robot) runs round to whichever side of the model you're on.
   - At **life size** he follows you around the yard, about a step away. If you go inside, he waits in the porch, since the doors are shut.
   - He finds his way with A* on a 20 cm grid. The grid holds the greenhouse walls, plus real obstacles seen by WebXR depth sensing: depth points between 0.2 and 1.8 m above the ground mark a cell as blocked, and points on the floor clear it.
-- **Depth sensing** (optional, `cpu-optimized`) also hides the model and the characters behind real things.
+- **Moving them:** press on Gus or Bolt and drag to carry them somewhere else. This works while the model is locked, and in the 3D preview. At life size, walking into them pushes them aside.
+  - Gus walks back to work through a doorway.
+  - Bolt stays where you put him for 8 seconds. If you put him inside, he leaves through a door.
+- **Depth sensing** (optional, `cpu-optimized`) also hides the model and the characters behind real things. To keep the floor from flickering:
+  - The occlusion test is lenient near the model's ground plane, and more lenient with distance.
+  - Depth is sampled bilinearly, steady readings are averaged over frames, and the cut edge is dithered.
   - Options can turn that off. It also has **Show what Bolt sees**, which draws the cells he considers blocked.
   - A chip at the top says whether depth is on.
 

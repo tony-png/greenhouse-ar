@@ -2,6 +2,7 @@
 //   Gus, the gardener, works inside: walks between spots, tends the walls and doors, turns to you and waves.
 //   Bolt, the robot, follows you around outside, routing around the greenhouse and (at life size) around real
 //   obstacles the phone's depth sensing has seen; when you step inside he waits in the porch.
+// You can pick either of them up and put them somewhere else, and at life size you can bump into them.
 // Everything here is in the greenhouse's own frame: metres, y up, the porch at -z, standing on y = 0.
 import * as THREE from "three";
 
@@ -21,6 +22,7 @@ export class NavGrid {
     this.wall = new Uint8Array(N); // greenhouse walls, grown by the walker's radius
     this.seen = new Float32Array(N); // real obstacles, 0..1 confidence from depth
     this.inner = new Uint8Array(N); // the shut-in part of the greenhouse
+    this.doorWall = new Uint8Array(N); // the walls with the two doorways open (Gus has the keys)
     this.block = new Uint8Array(N); // what the last mask() call allows
     this.g = new Float32Array(N);
     this.f = new Float32Array(N);
@@ -31,6 +33,8 @@ export class NavGrid {
       const x = this.cx(i), z = this.cz(i);
       for (const [ax, az, bx, bz] of WALLS) if (segDist(x, z, ax, az, bx, bz) < radius) { this.wall[i] = 1; break; }
       this.inner[i] = inside(x, z) ? 1 : 0;
+      const doorway = Math.abs(x) < 0.4 && (Math.abs(z - HOUSE.front) < radius + 0.1 || Math.abs(z - HOUSE.back) < radius + 0.1);
+      this.doorWall[i] = this.wall[i] && !doorway ? 1 : 0;
     }
   }
   idx(x, z) {
@@ -40,11 +44,11 @@ export class NavGrid {
   cx(i) { return -this.half + ((i % this.n) + 0.5) * this.cell; }
   cz(i) { return -this.half + (Math.floor(i / this.n) + 0.5) * this.cell; }
 
-  // walls, plus the inside when `outside`, plus real obstacles grown by one cell when `seen`, plus everything
+  // walls (with the doorways open when `doors`), plus the inside when `outside`, plus real obstacles grown by one cell when `seen`, plus everything
   // outside `limit` ({x, z} half-sizes)
-  mask({ outside = false, seen = false, limit = null } = {}) {
-    const { n, block, wall } = this;
-    block.set(wall);
+  mask({ outside = false, doors = false, seen = false, limit = null } = {}) {
+    const { n, block } = this;
+    block.set(doors ? this.doorWall : this.wall);
     if (outside) for (let i = 0; i < n * n; i++) block[i] |= this.inner[i];
     if (seen) for (let i = 0; i < n * n; i++) {
       if (this.seen[i] < 0.5) continue;
@@ -242,6 +246,38 @@ class Character {
   }
   face(x, z, dt, rate = 5) { this.yaw += angleTo(this.yaw, Math.atan2(x - this.pos.x, z - this.pos.z)) * Math.min(1, dt * rate); }
   say(text, now, secs = 5) { this.speech = text; this.speechUntil = now + secs; }
+  // picked up with a finger: lifted a little, legs going
+  grab() {
+    this.held = true;
+    this.path = null;
+    this.oneShot = null;
+    this.loop("Run", 0.15);
+    this.actions.Run.timeScale = 1.6;
+  }
+  drag(x, z, grid) {
+    const i = grid.idx(x, z);
+    if (i < 0) return;
+    this.pos.set(x, 0.12, z);
+  }
+  drop(now) {
+    this.held = false;
+    this.pos.y = 0;
+    this.loop("Idle", 0.2);
+    this.dropped(now);
+  }
+  // you walked into them: step aside (not into a wall), and say so now and then
+  shove(user, dt, now, block, grid) {
+    if (this.held) return;
+    const dx = this.pos.x - user.x, dz = this.pos.z - user.z, d = Math.hypot(dx, dz), R = this.radius + 0.3;
+    if (d >= R) return;
+    const ux = d > 1e-3 ? dx / d : Math.sin(this.yaw), uz = d > 1e-3 ? dz / d : Math.cos(this.yaw), s = Math.min(R - d, 3 * dt + 0.02);
+    for (const [ox, oz] of [[ux, uz], [ux, 0], [0, uz]]) { // straight away, else slide along a wall
+      const x = this.pos.x + ox * s, z = this.pos.z + oz * s, i = grid.idx(x, z);
+      if (i >= 0 && !block[i]) { this.pos.x = x; this.pos.z = z; break; }
+    }
+    this.path = null;
+    if (now - (this.lastBump ?? -9) > 4) { this.lastBump = now; this.bumped(now); }
+  }
   line(topic) { // the next line of a topic, in order, wrapping round
     const list = this.lines[topic], i = (this.lineIndex[topic] = ((this.lineIndex[topic] ?? -1) + 1) % list.length);
     return list[i];
@@ -250,6 +286,7 @@ class Character {
     this.mixer.update(dt);
     this.root.rotation.y = this.yaw;
   }
+  held = false;
 }
 
 // ---------- Gus ----------
@@ -273,6 +310,8 @@ const GUS_LINES = {
   ],
   door: ["Sliding doors on a barn-door track, with a vent above each one.", "3.74 m across and 2.6 m of headroom. Plenty of room for me."],
   porch: ["Out front there's a covered porch bay.", "It all started from five photos of a greenhouse in England."],
+  dropped: ["Whoa! Easy, I'm not a sack of potatoes.", "Right. I'll walk back to work, then.", "Put me down gently next time!"],
+  bumped: ["Oof! Mind the gardener.", "Hey, I'm working here!", "Careful, the floor's not swept."],
 };
 
 export class Gardener extends Character {
@@ -290,6 +329,7 @@ export class Gardener extends Character {
   // ctx: { dt, now, grid, user: {x, z} | null, near: bool (you are close to him) }
   think(ctx) {
     const { dt, now, user } = ctx;
+    if (this.held) { this.update(dt); return; }
     const attention = user && (now < this.talkUntil || ctx.near);
     if (attention) {
       if (!this.attending) {
@@ -312,12 +352,23 @@ export class Gardener extends Character {
       if ((this.timer -= dt) <= 0) {
         const choices = SPOTS.filter((s) => s !== this.spot);
         this.spot = choices[Math.floor(Math.random() * choices.length)];
-        this.path = ctx.grid.plan(this.pos.x, this.pos.z, this.spot.x, this.spot.z, ctx.grid.wall);
+        this.path = ctx.grid.plan(this.pos.x, this.pos.z, this.spot.x, this.spot.z, ctx.grid.doorWall);
         this.mode = this.path ? "walk" : "work";
         this.timer = 3;
       }
     }
     this.update(dt);
+  }
+  dropped(now) {
+    this.say(this.line("dropped"), now, 4);
+    this.attending = false;
+    this.talkUntil = 0;
+    this.mode = "work";
+    this.timer = 1.5; // then off to a spot, through a door if he was put down outside
+  }
+  bumped(now) {
+    this.emote("Hit");
+    this.say(this.line("bumped"), now, 3);
   }
   tap(now) {
     this.talkUntil = now + 6;
@@ -333,7 +384,9 @@ const BOLT_LINES = {
   depth: ["Your phone's depth sensing shows me real things. I'll walk around them.", "I counted the arches. Five. All present."],
   blind: ["This phone can't show me real obstacles, so I only dodge the greenhouse.", "I counted the arches. Five. All present."],
   small: ["Lean in, I'm down here!", "This table is enormous. Or I'm very small.", "I counted the arches. Five. All present."],
-  wait: ["The doors are shut. I'll wait out here."],
+  wait: ["Robots aren't allowed in the greenhouse. I'll wait out here."],
+  dropped: ["Okay, okay. I'll stay here. For a bit.", "Wheee! Again!", "This spot? Fine. Briefly."],
+  bumped: ["Beep! Personal space!", "Hey! I was standing there."],
 };
 const EMOTES = ["Wave", "ThumbsUp", "Yes", "Dance", "Jump"];
 
@@ -347,11 +400,17 @@ export class Robot extends Character {
     this.idleFor = 0;
     this.waiting = false;
     this.greeted = false;
+    this.stayUntil = 0;
   }
   // ctx: { dt, now, grid, user, life (life size: may leave the pad and use real obstacles), depth }
   think(ctx) {
     const { dt, now, user, grid } = ctx;
-    if (user) {
+    if (this.held) { this.update(dt); return; }
+    if (user && now < this.stayUntil) { // put down somewhere: stay there a moment, watching you
+      this.path = null;
+      this.loop("Idle");
+      this.face(user.x, user.z, dt);
+    } else if (user) {
       const limit = ctx.life ? null : { x: HOUSE.padX - 0.04, z: HOUSE.padZ - 0.04 };
       const userIn = ctx.life && inside(user.x, user.z);
       let gx, gz;
@@ -368,7 +427,8 @@ export class Robot extends Character {
       const moving = this.path && this.path.length;
       if ((this.replan -= dt) <= 0 && (moving ? far > 0.25 : far > (ctx.life ? 0.7 : 0.35))) {
         this.replan = 0.5;
-        this.path = grid.plan(this.pos.x, this.pos.z, gx, gz, grid.mask({ outside: true, seen: ctx.life && ctx.depth, limit }));
+        const shutIn = inside(this.pos.x, this.pos.z); // put down inside: out through a door, then stay out
+        this.path = grid.plan(this.pos.x, this.pos.z, gx, gz, grid.mask({ outside: !shutIn, doors: shutIn, seen: ctx.life && ctx.depth, limit }));
       }
       const dist = Math.hypot(user.x - this.pos.x, user.z - this.pos.z);
       const speed = ctx.life && dist > 4 ? this.run : this.walk;
@@ -381,6 +441,15 @@ export class Robot extends Character {
       }
     }
     this.update(dt);
+  }
+  dropped(now) {
+    this.say(this.line("dropped"), now, 4);
+    this.stayUntil = now + 8;
+    this.replan = 0;
+  }
+  bumped(now) {
+    this.emote("No");
+    this.say(this.line("bumped"), now, 3);
   }
   tap(now, ctx) {
     this.emote(EMOTES[Math.floor(Math.random() * EMOTES.length)]);
@@ -399,6 +468,8 @@ export const occlusion = {
     uDepthUV: { value: new THREE.Matrix4() },
     uScreen: { value: new THREE.Vector2(1, 1) },
     uOcclude: { value: 0 },
+    uGround: { value: new THREE.Vector4(0, 1, 0, 1e3) }, // the model's ground plane in view space (normal, offset)
+    uFloor: { value: new THREE.Vector2(0.06, 0.25) }, // how high counts as "on the floor", and the tolerance there
   },
   texture: null,
   patch(material) {
@@ -408,13 +479,32 @@ export const occlusion = {
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, u);
       shader.fragmentShader = shader.fragmentShader
-        .replace("void main() {", "uniform sampler2D uRealDepth;\nuniform mat4 uDepthUV;\nuniform vec2 uScreen;\nuniform float uOcclude;\nvoid main() {")
+        .replace("void main() {", `uniform sampler2D uRealDepth;
+uniform mat4 uDepthUV;
+uniform vec2 uScreen;
+uniform float uOcclude;
+uniform vec4 uGround;
+uniform vec2 uFloor;
+float realDepth(vec2 uv) { // bilinear by hand (float textures don't filter); no reading (0) counts as far away
+  ivec2 size = textureSize(uRealDepth, 0);
+  vec2 p = uv * vec2(size) - 0.5, f = fract(p);
+  ivec2 i = ivec2(floor(p)), hi = size - 1;
+  vec4 d = vec4(texelFetch(uRealDepth, clamp(i, ivec2(0), hi), 0).r, texelFetch(uRealDepth, clamp(i + ivec2(1, 0), ivec2(0), hi), 0).r,
+                texelFetch(uRealDepth, clamp(i + ivec2(0, 1), ivec2(0), hi), 0).r, texelFetch(uRealDepth, clamp(i + ivec2(1, 1), ivec2(0), hi), 0).r);
+  d = mix(d, vec4(1e3), step(d, vec4(0.05)));
+  return mix(mix(d.x, d.y, f.x), mix(d.z, d.w, f.x), f.y);
+}
+void main() {`)
         .replace("#include <dithering_fragment>", `#include <dithering_fragment>
   if (uOcclude > 0.5) {
     vec2 nv = vec2(gl_FragCoord.x / uScreen.x, 1.0 - gl_FragCoord.y / uScreen.y);
-    vec2 duv = (uDepthUV * vec4(nv, 0.0, 1.0)).xy;
-    float real = texture2D(uRealDepth, duv).r;
-    if (real > 0.05 && real < vViewPosition.z - 0.05) discard;
+    float ahead = vViewPosition.z - realDepth((uDepthUV * vec4(nv, 0.0, 1.0)).xy); // > 0: something real is in front
+    // the phone's depth is noisy, more so far away and on the floor itself, which the model's ground sits on
+    float above = dot(uGround.xyz, -vViewPosition) + uGround.w;
+    float tol = (above < uFloor.x ? uFloor.y : 0.06) + 0.025 * vViewPosition.z;
+    float hide = smoothstep(tol, tol + 0.1 + 0.02 * vViewPosition.z, ahead);
+    float noise = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); // a soft, dithered edge
+    if (hide > noise) discard;
   }`);
     };
     material.customProgramCacheKey = () => "occl";
@@ -431,7 +521,10 @@ export const occlusion = {
     }
     const out = this.texture.image.data, k = info.rawValueToMeters;
     const src = info.data instanceof ArrayBuffer && info.data.byteLength === w * h * 4 ? new Float32Array(info.data) : new Uint16Array(info.data);
-    for (let i = 0; i < out.length; i++) out[i] = src[i] * k;
+    for (let i = 0; i < out.length; i++) { // steady readings are averaged over frames; a real change comes through at once
+      const v = src[i] * k, o = out[i];
+      out[i] = v > 0 && o > 0 && Math.abs(v - o) < 0.08 + 0.05 * v ? o * 0.6 + v * 0.4 : v;
+    }
     this.texture.needsUpdate = true;
     this.uniforms.uDepthUV.value.fromArray(info.normDepthBufferFromNormView.matrix);
   },
