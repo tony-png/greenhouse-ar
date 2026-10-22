@@ -638,6 +638,7 @@ async function startAR() {
   session.addEventListener("end", endAR);
   if (!session.domOverlayState) session.addEventListener("select", () => { if (!locked) wantPlace = true; }); // no overlay: tap = place
   controls.enabled = false;
+  failed.clear();
   overlay.prepend(bubbles);
   depthOn = (session.enabledFeatures || []).includes("depth-sensing") && session.depthUsage === "cpu-optimized";
   depthLive = false;
@@ -914,8 +915,8 @@ function readDepth(frame, dt) {
   $("depthNote").textContent = depthLive ? "" : "Depth sensing hasn't sent any data yet.";
   if (!info) return;
   occlusion.upload(info);
-  const vp = renderer.xr.getBaseLayer?.()?.getViewport(view) || session.renderState.baseLayer?.getViewport(view);
-  if (vp) occlusion.uniforms.uScreen.value.set(vp.width, vp.height);
+  const vp = xrView().viewport; // in pixels, set by three for either kind of XR layer
+  if (vp && vp.z > 0) occlusion.uniforms.uScreen.value.set(vp.z, vp.w);
   occlusion.uniforms.uOcclude.value = occlOn ? 1 : 0;
   if ((patchTimer -= dt) <= 0) { // new looks, steps and characters get the occlusion test as they appear
     patchTimer = 0.5;
@@ -965,6 +966,17 @@ function resize() {
 addEventListener("resize", resize);
 
 const clock = new THREE.Clock();
+// an error in the extras must not stop the render loop (three stops it for good); show the first one instead
+const failed = new Set();
+function guard(what, fn) {
+  if (failed.has(what)) return;
+  try { fn(); } catch (e) {
+    failed.add(what);
+    console.error(what, e);
+    depthChip.textContent = `${what} stopped: ${e.message || e}`;
+    if (what === "depth") { depthOn = false; occlusion.uniforms.uOcclude.value = 0; }
+  }
+}
 renderer.setAnimationLoop((time, frame) => {
   const dt = clock.getDelta();
   if (frame && hitSource) {
@@ -986,14 +998,14 @@ renderer.setAnimationLoop((time, frame) => {
       : placed ? (life ? "Tap Lock, then go for a walk · drag to move · twist to turn" : "Drag to move · pinch to resize · twist to turn · tap to re-place")
       : lastHit ? (life ? "Tap where the front of the greenhouse should be" : "Tap to place the greenhouse")
       : life ? "Point at the ground and move the phone slowly" : "Point at a table and move the phone slowly";
-    if (depthOn) readDepth(frame, dt);
+    if (depthOn) guard("depth", () => readDepth(frame, dt));
   } else controls.update();
-  if (!renderer.xr.isPresenting || placed) tickCast(dt);
+  if (!renderer.xr.isPresenting || placed) guard("characters", () => tickCast(dt));
   tickPlayer(dt);
   fitShadow();
   updateClip();
   renderer.render(scene, camera);
-  placeBubbles();
+  guard("bubbles", placeBubbles);
   window.__texPending = pendingTex;
 });
 
