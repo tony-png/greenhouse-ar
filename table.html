@@ -103,6 +103,7 @@
   .bubble { position: absolute; left: 0; top: 0; width: max-content; max-width: min(250px, 66vw); background: #fffdf8; color: #1f2a22; border-radius: 14px;
             padding: 7px 11px 8px; font: 14px/1.35 system-ui, sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
   .bubble[hidden] { display: none; }
+  .bubble .rest { opacity: 0; }
   .bubble b { display: block; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #4d7a3a; }
   .bubble::after { content: ""; position: absolute; left: var(--tail, 50%); bottom: -7px; margin-left: -7px; border: 7px solid transparent; border-bottom: 0; border-top-color: #fffdf8; }
 </style>
@@ -143,8 +144,11 @@
     <div class="ctl"><span>Lighting</span>
       <label class="switch"><input type="checkbox" data-ao checked> Contact shadows</label>
     </div>
-    <div class="ctl"><span>Gus and Bolt (tap them to talk)</span>
-      <label class="switch"><input type="checkbox" data-npc checked> Characters</label>
+    <div class="ctl"><span>Gus and Bolt (tap to talk, drag or throw them)</span>
+      <span class="row" style="gap:14px">
+        <label class="switch"><input type="checkbox" data-npc checked> Characters</label>
+        <label class="switch"><input type="checkbox" data-sound checked> Sound</label>
+      </span>
     </div>
   </div>
 
@@ -161,7 +165,7 @@
     <li>Tap to place the model (1:20, about 29 cm long). Tap again to move it somewhere else.</li>
     <li>Drag to slide it, pinch to resize, twist two fingers to turn it, or use the scale buttons.</li>
     <li>Tap <b>Lock</b> to fix it in place, then walk around it. <b>Options</b> switches the look, contact shadows and room reflections; <b>Assembly</b> plays the build step by step.</li>
-    <li>Gus the gardener works inside and Bolt the robot runs round to whichever side you're on. Tap either of them to talk. At <b>Life size</b>, Bolt follows you around the yard.</li>
+    <li>Gus the gardener works inside and Bolt the robot runs round to whichever side you're on. Tap either of them to talk; press and drag to carry them, flick to throw them. At <b>Life size</b>, Bolt follows you around the yard.</li>
   </ol>
 
   <footer>Needs Chrome on an Android phone with ARCore (Google Play Services for AR). Prefer it full size? Try <a href="yard.html">the backyard mode</a>. Photo wood: Poly Haven “Hinoki Planks” (CC0). A planning model, not a structural design.</footer>
@@ -198,6 +202,9 @@
       <p class="note" id="reflNote">Waiting for the phone's light estimate…</p>
       <div class="row">
         <label class="switch"><input type="checkbox" data-npc checked> Characters</label>
+        <label class="switch"><input type="checkbox" data-sound checked> Sound</label>
+      </div>
+      <div class="row">
         <label class="switch"><input type="checkbox" id="occl" checked disabled> Hide behind real things</label>
       </div>
       <div class="row">
@@ -243,6 +250,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { XREstimatedLight } from "three/addons/webxr/XREstimatedLight.js";
 import { TILES, WOOD_TILE, base, kindOf, surfaceUVs } from "./grain.js";
 import { Gardener, Robot, NavGrid, HOUSE, occlusion } from "./npc.js";
+import { Sound } from "./sound.js";
 
 const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.186.1/";
 const WALK = new URLSearchParams(location.search).has("walk"); // table.html?walk: start life size, in the yard
@@ -811,13 +819,26 @@ function loadCast() {
     for (const c of [gus, bolt]) {
       cast.push(c);
       npcs.add(c.root);
+      c.onSay = (who, text, now) => { // babble along with the line, and type the bubble out in time with it
+        const d = sound.speak(who, text, who === bolt);
+        who.speechUntil = Math.max(who.speechUntil, now + d + 2);
+        who.revealRate = text.length / Math.max(0.3, d);
+      };
+      c.onEvent = (who, name, k) => sound.fx(who, name, k, who === bolt);
       c.bubble = Object.assign(document.createElement("div"), { className: "bubble", hidden: true });
-      c.bubble.innerHTML = `<b>${c.name}</b><span></span>`;
+      c.bubble.innerHTML = `<b>${c.name}</b><span></span><span class="rest"></span>`; // the rest keeps its size while it types
       bubbles.append(c.bubble);
     }
     window.__npc = true;
   }).catch((e) => console.error("characters", e));
 }
+const sound = new Sound();
+all("[data-sound]").forEach((i) => i.addEventListener("change", () => {
+  all("[data-sound]").forEach((j) => (j.checked = i.checked));
+  sound.setOn(i.checked);
+  if (i.checked) sound.unlock();
+}));
+for (const el of [startBtn, canvas, overlay]) el.addEventListener("pointerdown", () => sound.unlock(), { capture: true });
 function setNpc(on) {
   npcOn = on;
   all("[data-npc]").forEach((i) => (i.checked = on));
@@ -833,7 +854,7 @@ function npcContext(dt) {
   viewer().getWorldPosition(camAt);
   userAt.copy(camAt);
   model.worldToLocal(userAt);
-  return { dt, now: clock.elapsedTime, grid, user: { x: userAt.x, z: userAt.z }, life, depth: depthLive && life };
+  return { dt, now: clock.elapsedTime, grid, user: { x: userAt.x, z: userAt.z }, life, depth: depthLive && life, scale: model.scale.x };
 }
 function tickCast(dt) {
   if (!cast.length || !npcs.visible) return;
@@ -847,6 +868,8 @@ function tickCast(dt) {
   }
   gus.think({ ...ctx, near });
   bolt.think(ctx);
+  sound.listen(viewer().matrixWorld);
+  for (const c of cast) sound.place(c, c.root.getWorldPosition(at));
 }
 // the character drawn near a screen point (between its feet and its head), if any
 const ft = new THREE.Vector3(), hd = new THREE.Vector3();
@@ -876,15 +899,24 @@ function carry(g, x, y, cam, w, h) {
   if (!g.moved) {
     if (Math.hypot(x - g.x0, y - g.y0) < 10) return;
     g.moved = true;
-    g.c.grab();
+    g.c.grab(clock.elapsedTime);
   }
   if (!onTable(x, y, floorAt, cam, w, h)) return;
   model.worldToLocal(floorAt);
   g.off ||= { x: g.c.pos.x - floorAt.x, z: g.c.pos.z - floorAt.z };
-  g.c.drag(floorAt.x + g.off.x, floorAt.z + g.off.z, grid);
+  let px = floorAt.x + g.off.x, pz = floorAt.z + g.off.z;
+  if (!lifeSize()) { px = THREE.MathUtils.clamp(px, -HOUSE.padX, HOUSE.padX); pz = THREE.MathUtils.clamp(pz, -HOUSE.padZ, HOUSE.padZ); } // on the table: not off the gravel
+  g.c.drag(px, pz, grid);
+}
+// letting go: the flick becomes a throw. What stops it: the walls (Gus can go through the doorways), the pad's edge
+// on the table, and at life size whatever real obstacles depth sensing found
+function letGo(c) {
+  const life = lifeSize();
+  const block = grid.mask({ doors: c === gus, seen: life && depthLive, limit: life ? null : { x: HOUSE.padX, z: HOUSE.padZ } }).slice();
+  c.drop(clock.elapsedTime, { scale: model.scale.x, block });
 }
 function endCarry() {
-  if (gesture?.kind === "npc" && gesture.c.held) gesture.c.drop(clock.elapsedTime);
+  if (gesture?.kind === "npc" && gesture.c.held) letGo(gesture.c);
 }
 function placeBubbles() {
   const cam = viewer(), ar = renderer.xr.isPresenting, w = ar ? innerWidth : stage.clientWidth, h = ar ? innerHeight : stage.clientHeight;
@@ -894,7 +926,8 @@ function placeBubbles() {
     if (show) {
       c.root.localToWorld(hd.set(0, c.height + 0.12, 0)).project(cam);
       if (hd.z > 1 || Math.abs(hd.x) > 1.2 || Math.abs(hd.y) > 1.2) { c.bubble.hidden = true; continue; }
-      if (c.bubble.lastChild.textContent !== c.speech) c.bubble.lastChild.textContent = c.speech;
+      const n = Math.max(1, Math.ceil((clock.elapsedTime - c.speechStart) * (c.revealRate || 30))), [said, rest] = [...c.bubble.querySelectorAll("span")];
+      if (said.textContent.length !== Math.min(n, c.speech.length) || said.textContent !== c.speech.slice(0, n)) { said.textContent = c.speech.slice(0, n); rest.textContent = c.speech.slice(n); }
       c.bubble.hidden = false;
       const x = (hd.x + 1) / 2 * w, y = (1 - hd.y) / 2 * h, bw = c.bubble.offsetWidth, bh = c.bubble.offsetHeight;
       const left = THREE.MathUtils.clamp(x - bw / 2, 8, w - bw - 8);
@@ -927,7 +960,7 @@ canvas.addEventListener("pointermove", (e) => {
 });
 canvas.addEventListener("pointerup", (e) => {
   const was = held;
-  if (held) { if (held.c.held) held.c.drop(clock.elapsedTime); held = null; controls.enabled = true; }
+  if (held) { if (held.c.held) letGo(held.c); held = null; controls.enabled = true; }
   if (!downAt || renderer.xr.isPresenting || was?.moved) { downAt = null; return; }
   const r = canvas.getBoundingClientRect();
   if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6 && performance.now() - downAt.t < 400) talkAt(e.clientX - r.left, e.clientY - r.top, camera, r.width, r.height);

@@ -34,6 +34,9 @@ Two characters live around the greenhouse, in tabletop mode and in the walk mode
   - At **life size** he follows you around the yard, about a step away. If you go inside, he waits in the porch, since the doors are shut.
   - He finds his way with A* on a 20 cm grid. The grid holds the greenhouse walls, plus real obstacles seen by WebXR depth sensing: depth points between 0.2 and 1.8 m above the ground mark a cell as blocked, and points on the floor clear it.
 - **Moving them:** press on Gus or Bolt and drag to carry them somewhere else. This works while the model is locked, and in the 3D preview. At life size, walking into them pushes them aside.
+  - While carried, they dangle against the way you drag them, with their legs going.
+  - **Throwing:** flick and let go, and your finger's last speed becomes a throw. They fly under gravity, scaled so a throw feels the same on the table and in the yard, and bounce once. Walls, the edge of the pad and real obstacles bounce them back.
+  - A soft landing gives a squash and a stretch. A hard landing, or a hard throw that flips them, knocks them down: the fall clip plays, then plays backwards to get them up.
   - Gus walks back to work through a doorway.
   - Bolt stays where you put him for 8 seconds. If you put him inside, he leaves through a door.
 - **Depth sensing** (optional, `cpu-optimized`) also hides the model and the characters behind real things. To keep the floor from flickering:
@@ -41,6 +44,13 @@ Two characters live around the greenhouse, in tabletop mode and in the walk mode
   - Depth is sampled bilinearly, steady readings are averaged over frames, and the cut edge is dithered.
   - Options can turn that off. It also has **Show what Bolt sees**, which draws the cells he considers blocked.
   - A chip at the top says whether depth is on.
+
+**Sound** (`sound.js`) is all synthesized with Web Audio; there are no audio files.
+
+- Gus babbles in Sims-style gibberish: a sawtooth voice through vowel formants, following the syllables and punctuation of his line. The speech bubble types out in time with it.
+- Bolt chirps instead.
+- There are effects for being picked up, thrown, landing (a thump for Gus, a metal clank for Bolt), bumped into, and for footsteps.
+- Every sound comes from the character's position (HRTF panning). The Sound switch turns it all off.
 
 `npc.js` holds both characters, the grid and the occlusion shader patch. `prep-npc.mjs` builds `npc/*.glb` from the CC0 sources:
 

@@ -191,19 +191,37 @@ class Character {
     this.root.name = o.name;
     this.body = gltf.scene;
     this.body.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; } });
-    this.root.add(this.body, blob(o.radius * 1.6));
+    // the body hangs from a pivot at mid-height, so it can lean, dangle and tumble about its middle
+    this.pivot = new THREE.Group();
+    this.pivot.position.y = o.height / 2;
+    this.body.position.y = -o.height / 2;
+    this.pivot.add(this.body);
+    this.shadow = blob(o.radius * 1.6);
+    this.root.add(this.pivot, this.shadow);
     this.mixer = new THREE.AnimationMixer(this.body);
     this.actions = Object.fromEntries(gltf.animations.map((c) => [c.name, this.mixer.clipAction(c)]));
-    this.mixer.addEventListener("finished", (e) => { if (e.action === this.oneShot) { this.oneShot = null; this.loop(this.base, 0.3); } });
+    this.mixer.addEventListener("finished", (e) => {
+      if (e.action !== this.oneShot) return;
+      this.oneShot = null;
+      if (this.down?.rising) this.down = null;
+      this.loop(this.base, 0.3);
+    });
     this.pos = this.root.position;
     this.yaw = 0;
     this.path = null;
     this.speech = "";
-    this.speechUntil = 0;
+    this.speechStart = this.speechUntil = 0;
     this.lineIndex = {};
     this.current = null;
+    this.held = false;
+    this.air = null; // in flight after a throw: velocity, time, bounces
+    this.down = null; // knocked over: when to get up
+    this.trail = []; // recent finger positions while carried: [time, x, z]
+    this.squash = 9;
+    this.phase = 0;
     this.loop("Idle", 0);
   }
+  emit(name, k) { this.onEvent?.(this, name, k); }
   fadeTo(a, fade) {
     if (this.current && this.current !== a) this.current.fadeOut(fade);
     a.reset().fadeIn(fade).play();
@@ -245,29 +263,122 @@ class Character {
     if (a && !this.oneShot) a.timeScale = speed / this.clipSpeed[name];
   }
   face(x, z, dt, rate = 5) { this.yaw += angleTo(this.yaw, Math.atan2(x - this.pos.x, z - this.pos.z)) * Math.min(1, dt * rate); }
-  say(text, now, secs = 5) { this.speech = text; this.speechUntil = now + secs; }
-  // picked up with a finger: lifted a little, legs going
-  grab() {
+  say(text, now, secs = 5) {
+    this.speech = text;
+    this.speechStart = now;
+    this.speechUntil = now + secs;
+    this.onSay?.(this, text, now);
+  }
+  line(topic) { // the next line of a topic, in order, wrapping round
+    const list = this.lines[topic], i = (this.lineIndex[topic] = ((this.lineIndex[topic] ?? -1) + 1) % list.length);
+    return list[i];
+  }
+
+  // ---------- carried, thrown, knocked over ----------
+  grab(now) { // picked up with a finger: lifted, legs going
     this.held = true;
     this.path = null;
-    this.oneShot = null;
+    this.air = this.down = this.oneShot = null;
+    this.pivot.rotation.set(0, 0, 0);
+    this.trail.length = 0;
     this.loop("Run", 0.15);
-    this.actions.Run.timeScale = 1.6;
+    this.actions.Run.timeScale = 1.8;
+    this.emit("grab");
+    this.say(this.line("grabbed"), now, 2.5);
   }
   drag(x, z, grid) {
-    const i = grid.idx(x, z);
-    if (i < 0) return;
-    this.pos.set(x, 0.12, z);
+    if (grid.idx(x, z) < 0) return;
+    this.pos.set(x, 0.15, z);
+    const now = performance.now() / 1000; // finger events come faster than frames: time them by the real clock
+    this.trail.push([now, x, z]);
+    while (this.trail.length > 2 && now - this.trail[0][0] > 0.15) this.trail.shift();
   }
-  drop(now) {
+  fingerVelocity() { // local units per second over the last moments of the drag, or zero if the finger stopped
+    const now = performance.now() / 1000, tr = this.trail, a = tr[0], b = tr[tr.length - 1];
+    if (tr.length < 2 || b[0] - a[0] < 0.02 || now - b[0] > 0.1) return [0, 0];
+    return [(b[1] - a[1]) / (b[0] - a[0]), (b[2] - a[2]) / (b[0] - a[0])];
+  }
+  // let go: the finger's last motion becomes a throw, or it's a gentle drop. env: { scale, block } where scale is
+  // metres per local unit (so the throw feels the same on the table and in the yard) and block is what stops it
+  drop(now, env) {
     this.held = false;
+    let [vx, vz] = this.fingerVelocity();
+    const s = env.scale, raw = Math.hypot(vx, vz) * s, speed = Math.min(7, raw); // metres per second
+    if (raw > 0) { vx *= speed / raw; vz *= speed / raw; }
+    const tossed = speed > 0.6;
+    if (tossed) this.yaw = Math.atan2(vx, vz);
+    this.air = { vx, vz, vy: tossed ? (1.0 + 0.35 * speed) / s : 0, t: 0, bounces: 0, block: env.block, tossed, spin: speed > 2.5 ? speed * 2.2 : 0 };
+    if (tossed) this.emit("toss", speed);
+  }
+  fly(dt, now, scale, grid) {
+    const a = this.air;
+    a.t += dt;
+    a.vy -= (9.8 / scale) * dt;
+    const nx = this.pos.x + a.vx * dt, nz = this.pos.z + a.vz * dt, i = grid.idx(nx, nz);
+    if (i < 0 || a.block[i]) { // a wall, the edge of the pad, or something real: bounce back off it
+      const v = Math.hypot(a.vx, a.vz) * scale;
+      if (v > 0.8) this.emit("bump", v * 0.5);
+      a.vx *= -0.3;
+      a.vz *= -0.3;
+    } else { this.pos.x = nx; this.pos.z = nz; }
+    this.pos.y += a.vy * dt;
+    if (a.spin) this.pivot.rotation.x += a.spin * dt; // thrown hard: head over heels
+    else this.pivot.rotation.x += (THREE.MathUtils.clamp(-a.vy * scale * 0.08, -0.5, 0.5) - this.pivot.rotation.x) * Math.min(1, dt * 8);
+    if (this.pos.y > 0) return;
     this.pos.y = 0;
-    this.loop("Idle", 0.2);
-    this.dropped(now);
+    const impact = -a.vy * scale;
+    this.emit("land", impact);
+    if (impact > 2.5 && !a.bounces) { a.vy = -a.vy * 0.3; a.vx *= 0.5; a.vz *= 0.5; a.bounces++; return; }
+    const upright = Math.cos(this.pivot.rotation.x);
+    this.pivot.rotation.x = 0;
+    this.air = null;
+    if (a.tossed && (impact > 3.4 || a.t > 0.75 || upright < 0.5 || a.spin)) this.knockDown(now);
+    else {
+      this.squash = 0;
+      this.loop("Idle", 0.2);
+      if (a.tossed) this.landed(now, false);
+      else this.dropped(now);
+    }
+  }
+  knockDown(now) { // flat on the ground (the fall clip), up again in a moment (the same clip backwards)
+    const f = this.actions.Fall;
+    this.down = { until: now + 1.8, rising: false };
+    this.oneShot = null;
+    this.base = "Idle"; // what he goes back to once he's up
+    if (f) { f.setLoop(THREE.LoopOnce, 1); f.clampWhenFinished = true; f.timeScale = 1.4; this.fadeTo(f, 0.06); }
+    this.landed(now, true);
+  }
+  getUp() {
+    const f = this.actions.Fall;
+    this.down.rising = true;
+    if (!f) { this.down = null; return; }
+    this.oneShot = f;
+    f.paused = false;
+    f.enabled = true;
+    f.time = f.getClip().duration;
+    f.timeScale = -1.1;
+  }
+  dangle(dt, now, scale) { // carried: the body swings against the way it's being moved
+    const [vx, vz] = this.fingerVelocity(), s = Math.sin(this.yaw), c = Math.cos(this.yaw);
+    const fwd = (vx * s + vz * c) * scale, side = (vx * c - vz * s) * scale, k = Math.min(1, dt * 10);
+    this.pivot.rotation.x += (THREE.MathUtils.clamp(fwd * 0.15, -0.7, 0.7) - this.pivot.rotation.x) * k;
+    this.pivot.rotation.z += (THREE.MathUtils.clamp(-side * 0.15, -0.7, 0.7) - this.pivot.rotation.z) * k;
+  }
+  // carried, flying or lying down: the usual behaviour waits (and this moves them instead)
+  busy(ctx) {
+    if (this.held) this.dangle(ctx.dt, ctx.now, ctx.scale);
+    else if (this.air) this.fly(ctx.dt, ctx.now, ctx.scale, ctx.grid);
+    else if (this.down) { if (!this.down.rising && ctx.now > this.down.until) this.getUp(); }
+    else {
+      if (this.pivot.rotation.z) this.pivot.rotation.z = 0;
+      return false;
+    }
+    this.update(ctx.dt);
+    return true;
   }
   // you walked into them: step aside (not into a wall), and say so now and then
   shove(user, dt, now, block, grid) {
-    if (this.held) return;
+    if (this.held || this.air || this.down) return;
     const dx = this.pos.x - user.x, dz = this.pos.z - user.z, d = Math.hypot(dx, dz), R = this.radius + 0.3;
     if (d >= R) return;
     const ux = d > 1e-3 ? dx / d : Math.sin(this.yaw), uz = d > 1e-3 ? dz / d : Math.cos(this.yaw), s = Math.min(R - d, 3 * dt + 0.02);
@@ -276,17 +387,27 @@ class Character {
       if (i >= 0 && !block[i]) { this.pos.x = x; this.pos.z = z; break; }
     }
     this.path = null;
-    if (now - (this.lastBump ?? -9) > 4) { this.lastBump = now; this.bumped(now); }
-  }
-  line(topic) { // the next line of a topic, in order, wrapping round
-    const list = this.lines[topic], i = (this.lineIndex[topic] = ((this.lineIndex[topic] ?? -1) + 1) % list.length);
-    return list[i];
+    if (now - (this.lastBump ?? -9) > 4) { this.lastBump = now; this.emit("bump", 1); this.bumped(now); }
   }
   update(dt) {
     this.mixer.update(dt);
     this.root.rotation.y = this.yaw;
+    if (this.squash < 0.6) { // a landing: squash, then a springy stretch back
+      this.squash += dt;
+      const k = Math.exp(-this.squash * 9) * Math.cos(this.squash * 30) * 0.22;
+      this.body.scale.set(1 + k * 0.5, 1 - k, 1 + k * 0.5);
+    } else if (this.body.scale.y !== 1) this.body.scale.set(1, 1, 1);
+    // the shadow stays on the ground, smaller and fainter the higher they are
+    this.shadow.position.y = 0.006 - this.pos.y;
+    this.shadow.scale.setScalar(1 / (1 + (2 * this.pos.y) / this.height));
+    // footsteps, twice per walk or run cycle
+    const a = this.current, walking = a && (a === this.actions.Walk || a === this.actions.Run) && !this.held && !this.air;
+    if (walking) {
+      const d = a.getClip().duration, ph = (((a.time % d) + d) % d) / d;
+      if (ph < 0.5 !== this.phase < 0.5) this.emit("step");
+      this.phase = ph;
+    }
   }
-  held = false;
 }
 
 // ---------- Gus ----------
@@ -310,7 +431,10 @@ const GUS_LINES = {
   ],
   door: ["Sliding doors on a barn-door track, with a vent above each one.", "3.74 m across and 2.6 m of headroom. Plenty of room for me."],
   porch: ["Out front there's a covered porch bay.", "It all started from five photos of a greenhouse in England."],
-  dropped: ["Whoa! Easy, I'm not a sack of potatoes.", "Right. I'll walk back to work, then.", "Put me down gently next time!"],
+  dropped: ["Thanks. I'll walk back to work, then.", "Right here? Fine.", "Put me down gently, like that. Good."],
+  grabbed: ["Hey!", "Whoa, whoa!", "Put me down!", "Not again!"],
+  landedSoft: ["Phew. Still in one piece.", "Ta-da! Back to work.", "Easy on the gardener!"],
+  landedHard: ["Ow. My back.", "I'm okay! I'm okay.", "That's not in the job description.", "Whoa! Easy, I'm not a sack of potatoes."],
   bumped: ["Oof! Mind the gardener.", "Hey, I'm working here!", "Careful, the floor's not swept."],
 };
 
@@ -329,7 +453,7 @@ export class Gardener extends Character {
   // ctx: { dt, now, grid, user: {x, z} | null, near: bool (you are close to him) }
   think(ctx) {
     const { dt, now, user } = ctx;
-    if (this.held) { this.update(dt); return; }
+    if (this.busy(ctx)) return;
     const attention = user && (now < this.talkUntil || ctx.near);
     if (attention) {
       if (!this.attending) {
@@ -359,12 +483,13 @@ export class Gardener extends Character {
     }
     this.update(dt);
   }
-  dropped(now) {
-    this.say(this.line("dropped"), now, 4);
+  dropped(now) { this.landed(now, false, "dropped"); }
+  landed(now, hard, topic = hard ? "landedHard" : "landedSoft") {
+    this.say(this.line(topic), now, 4);
     this.attending = false;
     this.talkUntil = 0;
     this.mode = "work";
-    this.timer = 1.5; // then off to a spot, through a door if he was put down outside
+    this.timer = 1.5; // then off to a spot, through a door if he landed outside
   }
   bumped(now) {
     this.emote("Hit");
@@ -385,7 +510,10 @@ const BOLT_LINES = {
   blind: ["This phone can't show me real obstacles, so I only dodge the greenhouse.", "I counted the arches. Five. All present."],
   small: ["Lean in, I'm down here!", "This table is enormous. Or I'm very small.", "I counted the arches. Five. All present."],
   wait: ["Robots aren't allowed in the greenhouse. I'll wait out here."],
-  dropped: ["Okay, okay. I'll stay here. For a bit.", "Wheee! Again!", "This spot? Fine. Briefly."],
+  dropped: ["Okay, okay. I'll stay here. For a bit.", "This spot? Fine. Briefly."],
+  grabbed: ["Wheee!", "Beep?!", "Up we go!"],
+  landedSoft: ["Stuck the landing!", "Ten out of ten!", "Again! Again!"],
+  landedHard: ["Systems... rebooting.", "Ouch. Still five arches.", "Again! But softer!"],
   bumped: ["Beep! Personal space!", "Hey! I was standing there."],
 };
 const EMOTES = ["Wave", "ThumbsUp", "Yes", "Dance", "Jump"];
@@ -405,7 +533,7 @@ export class Robot extends Character {
   // ctx: { dt, now, grid, user, life (life size: may leave the pad and use real obstacles), depth }
   think(ctx) {
     const { dt, now, user, grid } = ctx;
-    if (this.held) { this.update(dt); return; }
+    if (this.busy(ctx)) return;
     if (user && now < this.stayUntil) { // put down somewhere: stay there a moment, watching you
       this.path = null;
       this.loop("Idle");
@@ -445,6 +573,12 @@ export class Robot extends Character {
   dropped(now) {
     this.say(this.line("dropped"), now, 4);
     this.stayUntil = now + 8;
+    this.replan = 0;
+  }
+  landed(now, hard) {
+    this.say(this.line(hard ? "landedHard" : "landedSoft"), now, 4);
+    if (!hard) this.emote("ThumbsUp");
+    this.stayUntil = now + 3;
     this.replan = 0;
   }
   bumped(now) {
