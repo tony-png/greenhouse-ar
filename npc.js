@@ -1,13 +1,13 @@
 // The two characters that live around the greenhouse, shared by the AR pages.
 //   Gus, the gardener, works inside: walks between spots, tends the walls and doors, turns to you and waves.
 //   Bolt, the robot, follows you around outside, routing around the greenhouse and (at life size) around real
-//   obstacles the phone's depth sensing has seen; when you step inside he waits in the porch.
+//   obstacles the phone's depth sensing (or the headset's room scan) has seen; when you step inside he waits out front.
 // You can pick either of them up and put them somewhere else, and at life size you can bump into them.
-// Everything here is in the greenhouse's own frame: metres, y up, the porch at -z, standing on y = 0.
+// Everything here is in the greenhouse's own frame: metres, y up, the front door at -z, standing on y = 0.
 import * as THREE from "three";
 
-// footprint: side walls x = ±1.9, back wall at z = 2.46, front wall (door shut) at z = -1.24, open porch to z = -2.48
-export const HOUSE = { x: 1.9, back: 2.46, front: -1.24, end: -2.48, padX: 2.35, padZ: 2.95 };
+// footprint of the v2 greenhouse (v2.js): side walls x = ±1.9, end walls (doors shut) at z = ±2.44, gravel pad 4.7 × 5.9 m
+export const HOUSE = { x: 1.9, back: 2.44, front: -2.44, end: -2.44, padX: 2.35, padZ: 2.95 };
 const WALLS = [
   [-HOUSE.x, HOUSE.end, -HOUSE.x, HOUSE.back], [HOUSE.x, HOUSE.end, HOUSE.x, HOUSE.back],
   [-HOUSE.x, HOUSE.back, HOUSE.x, HOUSE.back], [-HOUSE.x, HOUSE.front, HOUSE.x, HOUSE.front],
@@ -176,7 +176,7 @@ function blob(r) {
     blobTex = new THREE.CanvasTexture(c);
   }
   const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * r, 2 * r).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, opacity: 0.6 }));
+    new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, opacity: 0.6, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); // drawn on the floor, never fighting it
   m.position.y = 0.006;
   m.renderOrder = 1;
   return m;
@@ -412,25 +412,34 @@ class Character {
 
 // ---------- Gus ----------
 const SPOTS = [ // where Gus works: position, which way he faces, what he does, what he talks about there
-  { x: -1.3, z: 1.6, yaw: -Math.PI / 2, act: "Interact", topic: "frame" },
-  { x: 1.3, z: 1.6, yaw: Math.PI / 2, act: "Interact", topic: "frame" },
-  { x: 0, z: 2.0, yaw: 0, act: "Look", topic: "door" },
-  { x: 1.3, z: 0.0, yaw: Math.PI / 2, act: "Interact", topic: "frame" },
-  { x: 0, z: -0.75, yaw: Math.PI, act: "Look", topic: "porch" },
-  { x: -1.3, z: -0.1, yaw: -Math.PI / 2, act: "Interact", topic: "frame" },
+  { x: -1.2, z: 1.6, yaw: -Math.PI / 2, act: "Interact", topic: "frame" },
+  { x: 1.2, z: 1.6, yaw: Math.PI / 2, act: "Interact", topic: "frame" },
+  { x: 0, z: 1.95, yaw: 0, act: "Look", topic: "door" },
+  { x: 1.2, z: -0.4, yaw: Math.PI / 2, act: "Interact", topic: "frame" },
+  { x: 0, z: -1.95, yaw: Math.PI, act: "Look", topic: "door" },
+  { x: -1.2, z: -0.6, yaw: -Math.PI / 2, act: "Interact", topic: "collar" },
 ];
 const GUS_LINES = {
-  hello: ["Hi, I'm Gus. Not one bent board in here: every curve is short straight pieces."],
+  hello: ["Hi, I'm Gus. Every board in these arches is a straight 2x6, and every cut is 15 degrees."],
   frame: [
-    "Each arch is two chains of straight pieces, offset by half a piece. Every crossing gets a half-lap and a bolt.",
-    "All those crossings make little triangles. That's what stiffens the arch, like a curved truss.",
-    "Five arches, about 1.2 m apart, tied together by the purlins.",
-    "Each foot sits between two treated foot boards, held with three bolts.",
-    "The twinwall polycarbonate bends right over the purlins.",
+    "Each arch is two layers of 2x6. Each layer is a polygon of straight pieces, and the second is turned half a step, so every joint is covered.",
+    "Eleven identical pieces per arch, both ends cut at 15°. The saw only ever sits at 0 or 15.",
+    "Where the layers cross: two bolts and six structural screws. No glue counted, no straps.",
+    "Five arches, 1.2 m apart, tied together by twelve purlins.",
+    "The feet go 1.2 m down, below the frost, with a belled concrete plug and crushed stone round them.",
+    "The polycarbonate sheets bend over the purlins uncut. Eighteen sheets in all.",
     "Tomatoes love it in here. I tie them straight to the frame.",
   ],
-  door: ["Sliding doors on a barn-door track, with a vent above each one.", "3.74 m across and 2.6 m of headroom. Plenty of room for me."],
-  porch: ["Out front there's a covered porch bay.", "It all started from five photos of a greenhouse in England."],
+  collar: [
+    "See the pair of 2x4s up there at 2.15 m? The collar tie. It's what lets the arches carry a Quebec snow load.",
+    "The collar is bolted through both layers at each end. It keeps the arch from spreading.",
+  ],
+  door: [
+    "Sliding barn doors at both ends, hung from the collar, with a vent above each one.",
+    "The door posts hang from the arch and stop 25 mm above the sole plate, so frost can't jack them up.",
+    "3.74 m across and 2.6 m of headroom. Plenty of room for me.",
+    "It all started from five photos of a greenhouse in England.",
+  ],
   dropped: ["Thanks. I'll walk back to work, then.", "Right here? Fine.", "Put me down gently, like that. Good."],
   grabbed: ["Hey!", "Whoa, whoa!", "Put me down!", "Not again!"],
   landedSoft: ["Phew. Still in one piece.", "Ta-da! Back to work.", "Easy on the gardener!"],
@@ -506,8 +515,8 @@ export class Gardener extends Character {
 // ---------- Bolt ----------
 const BOLT_LINES = {
   hello: ["Beep! I'm Bolt. Walk around, I'll keep up."],
-  depth: ["Your phone's depth sensing shows me real things. I'll walk around them.", "I counted the arches. Five. All present."],
-  blind: ["This phone can't show me real obstacles, so I only dodge the greenhouse.", "I counted the arches. Five. All present."],
+  depth: ["Depth sensing shows me real things. I'll walk around them.", "I counted the arches. Five. All present."],
+  blind: ["I can't see real obstacles here, so I only dodge the greenhouse.", "I counted the arches. Five. All present."],
   small: ["Lean in, I'm down here!", "This table is enormous. Or I'm very small.", "I counted the arches. Five. All present."],
   wait: ["Robots aren't allowed in the greenhouse. I'll wait out here."],
   dropped: ["Okay, okay. I'll stay here. For a bit.", "This spot? Fine. Briefly."],
@@ -542,7 +551,7 @@ export class Robot extends Character {
       const limit = ctx.life ? null : { x: HOUSE.padX - 0.04, z: HOUSE.padZ - 0.04 };
       const userIn = ctx.life && inside(user.x, user.z);
       let gx, gz;
-      if (userIn) { gx = 0; gz = HOUSE.front - 0.45; } // at the front door, in the porch
+      if (userIn) { gx = 0.9; gz = HOUSE.front - 0.45; } // out front, beside the door
       else {
         const dx = this.pos.x - user.x, dz = this.pos.z - user.z, d = Math.hypot(dx, dz) || 1;
         const keep = ctx.life ? 1.2 : 0; // at life size, stay a step away; on the table, come as close as the pad allows

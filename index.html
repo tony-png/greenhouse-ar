@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Greenhouse AR</title>
-<meta name="description" content="See the wooden lattice-rib tunnel greenhouse in AR: as a scale model on your table, or life-size in your backyard.">
+<meta name="description" content="See the v2 wooden tunnel greenhouse in AR on a phone or a Meta Quest, as a scale model on your table or life-size in your backyard, or walk round it in a VR backyard.">
 <meta name="theme-color" content="#1f2a22">
 <style>
   :root {
@@ -33,7 +33,7 @@
   .go { margin-top: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--leaf); color: var(--leaf-ink);
         border-radius: 12px; padding: 13px 16px; font-weight: 600; }
   a.mode.second .go { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
-  @media (min-width: 640px) { a.mode.walk { grid-column: 1 / -1; } }
+  @media (min-width: 640px) { a.mode.walk, a.mode.vr { grid-column: 1 / -1; } }
   .facts { margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .fact { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
   .fact b { display: block; font-size: 1.15rem; }
@@ -48,8 +48,8 @@
       <path d="M8 58V34a26 26 0 0 1 52 0v24"/><path d="M32 58V40a26 26 0 0 1 52-6v24" opacity=".55"/><path d="M14 20l24 -12M34 8l26 0M54 8l24 12" opacity=".55"/><path d="M4 58h84"/>
     </svg>
     <div>
-      <h1>Greenhouse AR</h1>
-      <p class="lede">The wooden lattice-rib tunnel greenhouse, in your own space.</p>
+      <h1>Greenhouse AR · VR</h1>
+      <p class="lede">The v2 tunnel greenhouse: two-ply 2x6 arches, every cut at 15°. In your own space, or in a virtual backyard.</p>
     </div>
   </div>
 
@@ -72,6 +72,12 @@
       <p>Put the greenhouse in your yard and go for a walk. Gus the gardener works inside and tells you how it's built; Bolt the robot follows you around, walks around real obstacles and hides behind real things on phones with depth sensing.</p>
       <span class="go">Start the walk →</span>
     </a>
+    <a class="mode second vr" href="table.html?vr">
+      <span class="tag">Meta Quest · VR</span>
+      <h2>Walk round it in VR</h2>
+      <p>A virtual backyard with the greenhouse at life size. Walk or teleport round it and inside, play the build step by step around you, and meet Gus and Bolt. Point and pull the trigger, or use your hands.</p>
+      <span class="go">Enter the VR backyard →</span>
+    </a>
   </div>
 
   <div class="facts">
@@ -80,7 +86,7 @@
     <div class="fact"><b>2.6 m</b><span>headroom</span></div>
   </div>
 
-  <footer>Works in Chrome on an Android phone with ARCore (Google Play Services for AR). On a computer you get a 3D preview. A planning model, not a structural design.</footer>
+  <footer>Phones: Chrome on Android with ARCore (Google Play Services for AR). Headsets: the Meta Quest browser, in passthrough AR or VR (the backyard mode is phone-only). On a computer you get a 3D preview. A planning model of the v2 design, not a structural drawing.</footer>
 </main>
 </body>
 </html>

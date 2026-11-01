@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Greenhouse · tabletop AR</title>
-<meta name="description" content="Put a scale model of the wooden tunnel greenhouse on your table in AR: resize it, turn it, lock it, compare finishes and play the assembly step by step.">
+<title>Greenhouse AR and VR</title>
+<meta name="description" content="The v2 greenhouse in AR on a phone or a Meta Quest, or at life size in a VR backyard: resize it, turn it, lock it, compare finishes and play the build step by step.">
 <meta name="theme-color" content="#1f2a22">
 <script type="importmap">
 { "imports": {
@@ -58,6 +58,8 @@
         background: var(--leaf); color: var(--leaf-ink); font: 600 1.1rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
   .ar svg { width: 22px; height: 22px; }
   .ar[disabled] { opacity: .45; cursor: default; }
+  .ar[hidden] { display: none; }
+  .ar.vr { background: #35546b; margin-top: 0; }
   .note { color: var(--muted); font-size: 0.9rem; min-height: 1.4em; margin: 0 0 18px; text-align: center; }
   h2 { font-size: 1rem; margin: 0 0 8px; }
   ol { margin: 0; padding-left: 1.2em; }
@@ -110,9 +112,9 @@
 </head>
 <body>
 <main>
-  <a class="back" href="./">← All AR modes</a>
+  <a class="back" href="./">← All modes</a>
   <h1>Greenhouse on your table</h1>
-  <p class="lede">A scale model in AR. Place it on a table, size it from 1:100 up to life size, turn it, lock it, compare finishes, and play the assembly step by step.</p>
+  <p class="lede">The v2 greenhouse (two-ply 2x6 arches) as a scale model in AR. Place it on a table, size it from 1:100 up to life size, turn it, lock it, compare finishes, and play the build step by step. On a Meta Quest you can also walk round it in a virtual backyard.</p>
 
   <div class="stage">
     <div class="seg" data-models role="group" aria-label="Model">
@@ -121,12 +123,12 @@
       <button type="button" data-model="assembly" aria-pressed="false">Assembly</button>
     </div>
     <canvas id="c" aria-label="3D preview of the greenhouse; drag to turn, pinch or scroll to zoom"></canvas>
-    <div class="loading" id="loading">Loading model…</div>
+    <div class="loading" id="loading">Building the model…</div>
   </div>
 
   <div class="controls">
     <div class="player" data-player hidden>
-      <div class="caption" data-caption>Step 1 / 15</div>
+      <div class="caption" data-caption>Step 1 / 14</div>
       <div class="transport">
         <button type="button" data-prev aria-label="Previous step">⏮</button>
         <button type="button" class="play" data-play aria-label="Play or pause">▶</button>
@@ -141,9 +143,6 @@
         <button type="button" data-look="photo" aria-pressed="false">Photo wood</button>
       </div>
     </div>
-    <div class="ctl"><span>Lighting</span>
-      <label class="switch"><input type="checkbox" data-ao checked> Contact shadows</label>
-    </div>
     <div class="ctl"><span>Gus and Bolt (tap to talk, drag or throw them)</span>
       <span class="row" style="gap:14px">
         <label class="switch"><input type="checkbox" data-npc checked> Characters</label>
@@ -155,20 +154,34 @@
   <button class="ar" id="start" type="button" disabled>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>
-    Put it on my table
+    <span>Put it on my table</span>
+  </button>
+  <button class="ar vr" id="startVR" type="button" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-4l-2-3h-2l-2 3H5a2 2 0 0 1-2-2z"/><circle cx="8" cy="11.5" r="1.5"/><circle cx="16" cy="11.5" r="1.5"/></svg>
+    <span>Walk round it in VR</span>
   </button>
   <p class="note" id="note">Checking for AR support…</p>
 
-  <h2>How it works</h2>
+  <h2>On a phone</h2>
   <ol>
     <li>Point the phone at a table and move it slowly until the ring appears.</li>
     <li>Tap to place the model (1:20, about 29 cm long). Tap again to move it somewhere else.</li>
     <li>Drag to slide it, pinch to resize, twist two fingers to turn it, or use the scale buttons.</li>
-    <li>Tap <b>Lock</b> to fix it in place, then walk around it. <b>Options</b> switches the look, contact shadows and room reflections; <b>Assembly</b> plays the build step by step.</li>
+    <li>Tap <b>Lock</b> to fix it in place, then walk around it. <b>Options</b> switches the look and the extras; <b>Assembly</b> plays the build step by step.</li>
     <li>Gus the gardener works inside and Bolt the robot runs round to whichever side you're on. Tap either of them to talk; press and drag to carry them, flick to throw them. At <b>Life size</b>, Bolt follows you around the yard.</li>
   </ol>
+  <h2 style="margin-top:16px">On a Meta Quest</h2>
+  <ol>
+    <li><b>Put it on my table</b> shows it in your room (passthrough). <b>Walk round it in VR</b> puts you in a virtual backyard with the greenhouse at life size.</li>
+    <li>Point a controller (or your hand) at the floor or a table and pull the trigger (or pinch) to place it.</li>
+    <li>Trigger-drag to slide it. Hold both grips (or pinch with both hands) and pull apart or twist to resize and turn it. The thumbstick also turns and resizes it. <b>B</b>/<b>Y</b> locks it.</li>
+    <li><b>Look at your left hand</b> for the menu, or press <b>A</b>/<b>X</b> to pin it in front of you. Press its buttons with the ray.</li>
+    <li>In VR: left stick to walk, right stick to turn, trigger (or pinch) on the grass to teleport.</li>
+    <li>Point at Gus or Bolt and pull the trigger to talk; hold to carry them, flick to throw. With a room scan (Space Setup), Bolt walks round your real furniture.</li>
+  </ol>
 
-  <footer>Needs Chrome on an Android phone with ARCore (Google Play Services for AR). Prefer it full size? Try <a href="yard.html">the backyard mode</a>. Photo wood: Poly Haven “Hinoki Planks” (CC0). A planning model, not a structural design.</footer>
+  <footer>Phones: Chrome on Android with ARCore. Headsets: the Meta Quest browser. Prefer it full size on a phone? Try <a href="yard.html">the backyard mode</a>. Photo wood: Poly Haven “Hinoki Planks” (CC0). A planning model of the v2 design, not a structural drawing.</footer>
 </main>
 
 <div id="overlay">
@@ -179,7 +192,7 @@
   </div>
   <div class="ov-bottom">
     <div class="ov-player" data-player hidden>
-      <div class="caption chip" data-caption>Step 1 / 15</div>
+      <div class="caption chip" data-caption>Step 1 / 14</div>
       <div class="transport">
         <button type="button" data-prev aria-label="Previous step">⏮</button>
         <button type="button" class="play" data-play aria-label="Play or pause">▶</button>
@@ -196,7 +209,6 @@
         </div>
       </div>
       <div class="row">
-        <label class="switch"><input type="checkbox" data-ao checked> Contact shadows</label>
         <label class="switch"><input type="checkbox" id="refl" checked disabled> Room reflections</label>
       </div>
       <p class="note" id="reflNote">Waiting for the phone's light estimate…</p>
@@ -205,7 +217,7 @@
         <label class="switch"><input type="checkbox" data-sound checked> Sound</label>
       </div>
       <div class="row">
-        <label class="switch"><input type="checkbox" id="occl" checked disabled> Hide behind real things</label>
+        <label class="switch"><input type="checkbox" id="occl" disabled> Hide behind real things</label>
       </div>
       <div class="row">
         <label class="switch"><input type="checkbox" id="see" disabled> Show what Bolt sees</label>
@@ -234,11 +246,19 @@
 </div>
 
 <script>
-  if (new URLSearchParams(location.search).has("walk")) { // same page, life-size wording
-    document.title = "Greenhouse · walk with Gus and Bolt";
-    document.querySelector("h1").textContent = "Walk with Gus and Bolt";
-    document.querySelector(".lede").textContent = "The greenhouse at life size in your yard. Gus the gardener works inside; Bolt the robot follows you around, and with depth sensing he walks around real obstacles and hides behind real things.";
-    document.getElementById("start").lastChild.textContent = " Start the walk";
+  { // same page, other wording: ?walk starts at life size, ?vr leads with the VR backyard
+    const q = new URLSearchParams(location.search);
+    if (q.has("walk")) {
+      document.title = "Greenhouse · walk with Gus and Bolt";
+      document.querySelector("h1").textContent = "Walk with Gus and Bolt";
+      document.querySelector(".lede").textContent = "The greenhouse at life size in your yard. Gus the gardener works inside; Bolt the robot follows you around, and with depth sensing or a headset's room scan he walks around real obstacles.";
+      document.querySelector("#start span").textContent = "Start the walk";
+    }
+    if (q.has("vr")) {
+      document.title = "Greenhouse · VR backyard";
+      document.querySelector("h1").textContent = "Walk round it in VR";
+      document.querySelector(".lede").textContent = "On a Meta Quest: the greenhouse at life size in a virtual backyard. Walk inside, play the build step by step around you, and meet Gus and Bolt.";
+    }
   }
 </script>
 <script type="module">
@@ -248,27 +268,28 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { XREstimatedLight } from "three/addons/webxr/XREstimatedLight.js";
-import { TILES, WOOD_TILE, base, kindOf, surfaceUVs } from "./grain.js";
+import { XRControllerModelFactory } from "three/addons/webxr/XRControllerModelFactory.js";
+import { XRHandModelFactory } from "three/addons/webxr/XRHandModelFactory.js";
+import { TILES, WOOD_TILE, base, kindOf } from "./grain.js";
 import { Gardener, Robot, NavGrid, HOUSE, occlusion } from "./npc.js";
 import { Sound } from "./sound.js";
+import { buildStatic, buildAssembly, materials } from "./v2.js";
+import { HEADSET, Panel, TextCard, Pointers, Rig } from "./xr.js";
+import { buildYard } from "./vryard.js";
 
 const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.186.1/";
-const WALK = new URLSearchParams(location.search).has("walk"); // table.html?walk: start life size, in the yard
+const Q = new URLSearchParams(location.search);
+const WALK = Q.has("walk"), VR_FIRST = Q.has("vr"); // ?walk: start life size; ?vr: lead with the VR backyard
 const MIN_SCALE = 1 / 100, MAX_SCALE = 1, DEFAULT_SCALE = WALK ? 1 : 1 / 20;
-// assembly steps (English titles of video/src/scenes/ch5.ts)
-const STEPS = [
-  ["materials", "The materials"], ["cut", "Cut at 15°"], ["template", "The end template"], ["plya", "Layer A, laid flat"],
-  ["plyb", "Layer B on top"], ["bolt", "Drill and bolt"], ["tie", "The tie beam"], ["feet", "The foundations"],
-  ["raise", "Raise the arches"], ["purlins", "Purlins and rails"], ["braces", "Bracing"], ["endwalls", "The end walls"],
-  ["dwarf", "The dwarf walls"], ["cladding", "The polycarbonate"], ["final", "Finished"],
-];
 const PHOTO_TINT = { plyB: [0.86, 0.83, 0.78], pt: [0.8, 0.82, 0.64], ptDark: [0.64, 0.65, 0.5], bench: [0.75, 0.68, 0.6] };
+const VR_START = { x: 0, z: -6.6, yaw: Math.PI }; // on the path, facing the front door
 const $ = (id) => document.getElementById(id);
 const all = (sel) => document.querySelectorAll(sel);
 const canvas = $("c"), stage = canvas.parentElement, overlay = $("overlay"), note = $("note"), hint = $("hint"), readout = $("readout");
-const startBtn = $("start"), lockBtn = $("lock");
+const startBtn = $("start"), vrBtn = $("startVR"), lockBtn = $("lock");
 window.__three = THREE.REVISION;
-window.__debug = { get content() { return content; }, get mixer() { return mixer; }, get size() { return size; }, get cast() { return cast; },
+window.__debug = { get content() { return content; }, get asm() { return asm; }, get size() { return size; }, get cast() { return cast; }, get mode() { return mode; },
+  get placed() { return placed; }, get model() { return model; }, get menu() { return menu; },
   where(i) { const c = cast[i], v = c.root.localToWorld(new THREE.Vector3(0, c.height * 0.6, 0)).project(camera); return { x: (v.x + 1) / 2 * stage.clientWidth, y: (1 - v.y) / 2 * stage.clientHeight }; } }; // for the headless check
 
 // ---------- renderer, scene, preview camera ----------
@@ -301,13 +322,14 @@ sun.shadow.mapSize.set(2048, 2048);
 scene.add(hemi, sun, sun.target);
 const SUN_DIR = new THREE.Vector3(0.55, 1.35, 0.75).normalize();
 
-// root = the anchor (matrix from WebXR) > model = position on the surface, yaw and scale > content = the glb
+// root = the anchor (matrix from WebXR) > model = position on the surface, yaw and scale > content = the greenhouse
 const root = new THREE.Group();
 root.matrixAutoUpdate = false;
 scene.add(root);
 const model = new THREE.Group();
 root.add(model);
-const contact = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.33 }));
+// the contact shadow: drawn with a polygon offset so it never fights the gravel or the floor it lies on
+const contact = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.33, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
 contact.rotation.x = -Math.PI / 2;
 contact.position.y = 0.002;
 contact.receiveShadow = true;
@@ -316,7 +338,7 @@ model.add(contact);
 const reticle = new THREE.Group();
 reticle.matrixAutoUpdate = false;
 reticle.visible = false;
-const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
 const ring = new THREE.Group();
 ring.add(new THREE.Mesh(new THREE.RingGeometry(0.045, 0.058, 48).rotateX(-Math.PI / 2), ringMat));
 ring.add(new THREE.Mesh(new THREE.CircleGeometry(0.008, 20).rotateX(-Math.PI / 2), ringMat));
@@ -327,8 +349,8 @@ scene.add(reticle);
 const texLoader = new THREE.TextureLoader();
 const texCache = {};
 function tex(file, color, size, mirrorV = false) {
-  return (texCache[file] ||= (() => {
-    const t = texLoader.load("tex/" + file, () => { pendingTex--; });
+  return (texCache[file + size] ||= (() => {
+    const t = texLoader.load("tex/" + file, () => { pendingTex--; }, undefined, () => { pendingTex--; });
     pendingTex++;
     t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     t.wrapS = THREE.RepeatWrapping;
@@ -339,7 +361,7 @@ function tex(file, color, size, mirrorV = false) {
     return t;
   })());
 }
-let pendingTex = 0, look = "flat", aoOn = true;
+let pendingTex = 0, look = "flat";
 const lookCache = new Map();
 function lookMaterial(flat, which) {
   const name = base(flat.name), kind = kindOf(name);
@@ -368,7 +390,6 @@ function lookMaterial(flat, which) {
     m.normalMap = tex("twinwall_n.jpg", false, T.poly);
     m.normalScale.set(0.6, 0.6);
   }
-  m.aoMapIntensity = aoOn ? 1 : 0;
   lookCache.set(key, m);
   return m;
 }
@@ -381,52 +402,28 @@ function setLook(which) {
   if (content) applyLook(content);
   window.__look = which;
 }
-function setAO(on) {
-  aoOn = on;
-  all("[data-ao]").forEach((i) => (i.checked = on));
-  const each = (m) => { if (m.aoMap) m.aoMapIntensity = on ? 1 : 0; };
-  lookCache.forEach(each);
-  Object.values(statics).forEach((p) => p.then?.((o) => o.traverse((x) => x.userData.flat && each(x.userData.flat))));
-}
 all("[data-looks] button").forEach((b) => b.addEventListener("click", () => setLook(b.dataset.look)));
-all("[data-ao]").forEach((i) => i.addEventListener("change", () => setAO(i.checked)));
 
-// ---------- models ----------
+// ---------- models: built in the page from the v2 geometry (v2.js) ----------
 const loader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath(THREE_URL + "examples/jsm/libs/draco/gltf/"));
-const uvGeo = new WeakMap(); // original geometry → copy with metre UVs (steps share geometry between parts)
-function prep(gltf) {
-  const obj = gltf.scene, preUV = !!obj.userData.grainUV;
-  let seed = 1;
+function prepObj(obj) {
   obj.traverse((o) => {
     if (!o.isMesh) return;
-    const flat = o.material, kind = kindOf(flat.name);
-    flat.vertexColors = false; // Flat = the colours as they were
-    o.userData.flat = flat;
-    if (kind && !preUV) { // assembly steps: metre UVs computed here (static models come preprocessed)
-      if (!uvGeo.has(o.geometry)) {
-        const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
-        const { uv, color } = surfaceUVs(kind, g.attributes.position.array, seed++);
-        g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
-        if (color) g.setAttribute("color", new THREE.BufferAttribute(color, 3));
-        uvGeo.set(o.geometry, g);
-      }
-      o.geometry = uvGeo.get(o.geometry);
-    }
-    const clear = flat.transparent;
-    o.castShadow = !clear;
-    o.receiveShadow = !clear;
-    if (clear) flat.depthWrite = false;
+    o.userData.flat = o.material;
+    if (o.material.name === "gravel") o.renderOrder = -1; // first, so a headset's depth occlusion can be told to leave it alone
   });
-  return gltf;
+  return obj;
 }
 const statics = {};
-const loadStatic = (name) => (statics[name] ||= loader.loadAsync(name + ".glb").then((g) => prep(g).scene));
-const stepCache = {};
-const loadStep = (i) => (stepCache[i] ||= loader.loadAsync("steps/" + STEPS[i][0] + ".glb").then(prep));
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+const loadStatic = (name) => (statics[name] ||= nextFrame().then(() => prepObj(buildStatic(name))));
+let asm = null;
+const getAsm = () => (asm ||= (() => { const a = buildAssembly(); prepObj(a.root); a.reach = []; return a; })());
 
 let content = null, current = "greenhouse";
-const size = new THREE.Vector3(4.7, 2.87, 5.88);
-const box = new THREE.Box3(), mid = new THREE.Vector3();
+const size = new THREE.Vector3(4.7, 2.9, 5.9); // the house, for the readout
+const extent = new THREE.Vector2(2.35, 2.95); // half-size of what's shown round the model's origin (shadows)
+const box = new THREE.Box3(), mid = new THREE.Vector3(), tmpBox = new THREE.Box3();
 let clipBelow = false; // assembly steps: hide everything under the model's ground plane (foot boards in their holes)
 const clipPlane = new THREE.Plane(), clipN = new THREE.Vector3(), clipQ = new THREE.Quaternion(), clipP = new THREE.Vector3();
 function updateClip() {
@@ -434,24 +431,39 @@ function updateClip() {
   model.updateMatrixWorld();
   model.getWorldQuaternion(clipQ);
   model.getWorldPosition(clipP);
-  clipPlane.setFromNormalAndCoplanarPoint(clipN.set(0, 1, 0).applyQuaternion(clipQ), clipP);
+  clipPlane.setFromNormalAndCoplanarPoint(clipN.set(0, 1, 0).applyQuaternion(clipQ), clipP.addScaledVector(clipN, -0.0005 * model.scale.x));
   renderer.clippingPlanes = [clipPlane];
 }
-
+function visibleBox(obj, out) { // bounds of what is drawn, in the object's parent frame
+  out.makeEmpty();
+  obj.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(obj.parent ? obj.parent.matrixWorld : new THREE.Matrix4()).invert();
+  obj.traverseVisible((o) => {
+    if (!o.isMesh) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    out.union(tmpBox.copy(o.geometry.boundingBox).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)));
+  });
+  return out;
+}
+function setExtent(b) {
+  extent.set(Math.max(Math.abs(b.min.x), Math.abs(b.max.x), 0.3), Math.max(Math.abs(b.min.z), Math.abs(b.max.z), 0.3));
+  contact.scale.set(extent.x * 2.4, extent.y * 2.4, 1);
+}
+function frameView(b) { // preview: keep the view direction, look at what's shown
+  if (renderer.xr.isPresenting) return;
+  b.getCenter(mid);
+  const span = Math.max(b.max.x - b.min.x, b.max.z - b.min.z, (b.max.y - b.min.y) * 1.6, 1), dir = camera.position.clone().sub(controls.target).normalize();
+  controls.target.set(mid.x, Math.min((b.max.y - b.min.y) * 0.4, 1.2) + b.min.y, mid.z);
+  controls.minDistance = span * 0.4;
+  controls.maxDistance = span * 6;
+  camera.position.copy(controls.target).addScaledVector(dir, span * 2.4);
+}
 function mount(obj) {
   if (content) model.remove(content);
   content = obj;
   applyLook(obj);
   model.add(obj);
-  contact.scale.set(size.x * 1.5, size.z * 1.5, 1);
   $("loading").hidden = true;
-  if (!renderer.xr.isPresenting) { // preview: keep the view direction, frame the new size
-    const span = Math.max(size.x, size.z, size.y * 1.6, 1), look = camera.position.clone().sub(controls.target).normalize();
-    controls.target.set(0, Math.min(size.y * 0.4, 1.2), 0);
-    controls.minDistance = span * 0.4;
-    controls.maxDistance = span * 6;
-    camera.position.copy(controls.target).addScaledVector(look, span * 2.75);
-  }
   updateReadout();
 }
 
@@ -460,63 +472,55 @@ async function showModel(name) {
   clipBelow = false;
   all("[data-models] button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.model === name)));
   all("[data-player]").forEach((p) => (p.hidden = name !== "assembly"));
-  all("[data-ao]").forEach((i) => (i.disabled = name === "assembly")); // the steps have no baked AO
   npcs.visible = npcOn && name !== "assembly";
   if (name === "assembly") return showStep(stepIndex);
-  stopPlayer();
+  setPlaying(false);
   const obj = await loadStatic(name);
   if (current !== name) return;
-  obj.position.set(0, 0, 0);
-  box.setFromObject(obj).getSize(size);
+  content?.position.set(0, 0, 0);
   mount(obj);
+  obj.position.set(0, 0, 0);
+  visibleBox(obj, box);
+  box.getSize(size);
+  setExtent(box);
+  frameView(box);
 }
 all("[data-models] button").forEach((b) => b.addEventListener("click", () => showModel(b.dataset.model)));
 
 // ---------- assembly player ----------
-let stepIndex = 0, mixer = null, action = null, stepLen = 1, playing = false, advancing = false;
+let stepIndex = 0, stepT = 0, stepLen = 1, playing = false, advancing = false;
 async function showStep(i) {
-  const target = ((i % STEPS.length) + STEPS.length) % STEPS.length;
-  stepIndex = target;
-  setCaption("loading…");
-  const gltf = await loadStep(target);
-  if (current !== "assembly" || stepIndex !== target) return; // another step was chosen meanwhile
-  const obj = gltf.scene;
-  stepLen = obj.userData.seconds || gltf.animations[0]?.duration || 1;
-  mixer = new THREE.AnimationMixer(obj);
-  action = gltf.animations[0] ? mixer.clipAction(gltf.animations[0]) : null;
-  if (action) { action.setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
-  // centre it on the bounds of its final state. The ground stays at table level and the buried foot boards are
-  // clipped, except in the foundations step, whose soil cutaway is lifted so the block sits on the table.
-  obj.position.set(0, 0, 0);
-  seek(stepLen);
-  obj.updateMatrixWorld(true);
-  box.setFromObject(obj);
-  box.getCenter(mid);
-  const dig = STEPS[stepIndex][0] === "feet";
-  obj.position.set(-mid.x, dig ? -box.min.y : 0, -mid.z);
-  if (!dig) box.min.y = Math.max(box.min.y, 0);
-  box.getSize(size);
-  clipBelow = !dig;
+  if (!asm) { setCaption("building…"); await nextFrame(); }
+  const a = getAsm(), n = a.steps.length;
+  if (current !== "assembly") return;
+  stepIndex = ((i % n) + n) % n;
+  stepLen = a.steps[stepIndex].len;
+  if (content !== a.root) mount(a.root);
+  seek(stepLen); // bounds of the finished step, for the shadows and the preview framing
+  visibleBox(a.root, box);
+  setExtent(box);
+  frameView(box);
   seek(0);
-  mount(obj);
   setCaption();
-  window.__step = STEPS[stepIndex][0];
+  window.__step = a.steps[stepIndex].id;
 }
-// a LoopOnce action pauses itself when it reaches the end; reset it so setTime can move it again
 function seek(t) {
-  if (!mixer) return;
-  if (action) { action.reset(); action.play(); }
-  mixer.setTime(t);
+  if (!asm || content !== asm.root) return;
+  stepT = Math.min(Math.max(t, 0), stepLen);
+  asm.apply(stepIndex, stepT);
+  const lift = asm.lift(stepIndex); // the foundations step stands on its soil cut-away; the others hide what's underground
+  asm.root.position.y = lift;
+  clipBelow = !lift;
 }
+const captionText = () => (asm ? `Step ${stepIndex + 1} / ${asm.steps.length} · ${asm.steps[stepIndex].title}` : "Step 1");
 function setCaption(extra) {
-  all("[data-caption]").forEach((c) => (c.textContent = `Step ${stepIndex + 1} / ${STEPS.length} · ${extra || STEPS[stepIndex][1]}`));
+  all("[data-caption]").forEach((c) => (c.textContent = extra ? `Step ${stepIndex + 1} · ${extra}` : captionText()));
 }
 function setPlaying(on) {
   playing = on;
   all("[data-play]").forEach((b) => (b.textContent = on ? "⏸" : "▶"));
-  if (on && mixer && mixer.time >= stepLen - 0.01) seek(0);
+  if (on && stepT >= stepLen - 0.01) seek(0);
 }
-function stopPlayer() { setPlaying(false); mixer = null; action = null; }
 all("[data-play]").forEach((b) => b.addEventListener("click", () => setPlaying(!playing)));
 all("[data-prev]").forEach((b) => b.addEventListener("click", () => showStep(stepIndex - 1)));
 all("[data-next]").forEach((b) => b.addEventListener("click", () => showStep(stepIndex + 1)));
@@ -525,37 +529,44 @@ all("[data-scrub]").forEach((r) => r.addEventListener("input", () => {
   seek((r.value / 1000) * stepLen);
 }));
 function tickPlayer(dt) {
-  if (!mixer) return;
+  if (current !== "assembly" || !asm) return;
   if (playing && !advancing) {
-    mixer.update(Math.min(dt, 0.1));
-    if (mixer.time >= stepLen - 1e-3) { // pause a moment on the finished step, then the next one
-      seek(stepLen);
-      if (stepIndex < STEPS.length - 1) {
+    seek(stepT + Math.min(dt, 0.1));
+    if (stepT >= stepLen - 1e-3) { // pause a moment on the finished step, then the next one
+      if (stepIndex < asm.steps.length - 1) {
         advancing = true;
         const next = stepIndex + 1;
         setTimeout(async () => { try { if (playing && current === "assembly") await showStep(next); } finally { advancing = false; } }, 900);
       } else setPlaying(false);
     }
   }
-  const v = String(Math.round(Math.min(1, mixer.time / stepLen) * 1000));
+  const v = String(Math.round(Math.min(1, stepT / stepLen) * 1000));
   all("[data-scrub]").forEach((r) => { if (document.activeElement !== r) r.value = v; });
 }
 
 // ---------- light and contact shadow follow the model at any scale ----------
 let xrLight = null, estimating = false, reflOn = true;
-const centre = new THREE.Vector3(), dir = new THREE.Vector3();
-function fitShadow() {
+const centre = new THREE.Vector3(), dir = new THREE.Vector3(), smoothDir = new THREE.Vector3().copy(SUN_DIR);
+const lightRight = new THREE.Vector3(), lightUp = new THREE.Vector3(), snapped = new THREE.Vector3();
+function fitShadow(dt) {
   const s = model.scale.x;
   model.getWorldPosition(centre);
   if (estimating) {
     dir.copy(xrLight.directionalLight.position).normalize();
     if (dir.y < 0.45) { dir.y = 0.45; dir.normalize(); } // keep shadows short enough to stay on the table
-    sun.color.copy(xrLight.directionalLight.color);
-    sun.intensity = THREE.MathUtils.clamp(xrLight.directionalLight.intensity, 0.6, 3.5);
-  } else dir.copy(SUN_DIR);
-  const r = Math.max(size.x, size.z) * 0.8 * s + 0.01;
-  sun.position.copy(centre).addScaledVector(dir, r * 4);
-  sun.target.position.copy(centre);
+    smoothDir.lerp(dir, 1 - Math.exp(-dt / 1.5)).normalize(); // the estimate is noisy: swing the sun slowly, or shadows crawl
+    sun.color.lerp(xrLight.directionalLight.color, 1 - Math.exp(-dt / 1.5));
+    sun.intensity += (THREE.MathUtils.clamp(xrLight.directionalLight.intensity, 0.6, 3.5) - sun.intensity) * (1 - Math.exp(-dt / 1.5));
+  } else smoothDir.copy(SUN_DIR);
+  const r = Math.max(extent.x, extent.y) * 1.15 * s + 0.01;
+  // snap the shadow camera to whole shadow-map texels in light space, so anchor jitter doesn't make shadow edges shimmer
+  const texel = (2 * r) / sun.shadow.mapSize.x;
+  lightRight.crossVectors(up.set(0, 1, 0), smoothDir).normalize();
+  lightUp.crossVectors(smoothDir, lightRight);
+  const u = Math.round(centre.dot(lightRight) / texel) * texel, v = Math.round(centre.dot(lightUp) / texel) * texel, w = centre.dot(smoothDir);
+  snapped.copy(lightRight).multiplyScalar(u).addScaledVector(lightUp, v).addScaledVector(smoothDir, w);
+  sun.position.copy(snapped).addScaledVector(smoothDir, r * 4);
+  sun.target.position.copy(snapped);
   sun.target.updateMatrixWorld();
   const cam = sun.shadow.camera;
   if (cam.right !== r) {
@@ -584,10 +595,15 @@ $("optBtn").addEventListener("click", () => {
 });
 
 // ---------- readout and presets ----------
+const scaleLabel = () => { const n = 1 / model.scale.x; return n < 1.05 ? "Life size" : "1:" + (n >= 10 ? Math.round(n) : n.toFixed(1)); };
+function readoutText() {
+  if (!renderer.xr.isPresenting || !placed || mode === "vr") return "";
+  const len = size.z * model.scale.x;
+  return `${scaleLabel()} · ${len >= 1 ? len.toFixed(2) + " m" : Math.round(len * 100) + " cm"} long`;
+}
 function updateReadout() {
-  const s = model.scale.x, n = 1 / s, len = size.z * s;
-  const label = n < 1.05 ? "Life size" : "1:" + (n >= 10 ? Math.round(n) : n.toFixed(1));
-  readout.textContent = renderer.xr.isPresenting && placed ? `${label} · ${len >= 1 ? len.toFixed(2) + " m" : Math.round(len * 100) + " cm"} long` : "";
+  readout.textContent = readoutText();
+  const n = 1 / model.scale.x;
   all("#presets button").forEach((b) => b.setAttribute("aria-pressed", String(Math.abs(Number(b.dataset.ratio) - n) / n < 0.03)));
 }
 function setScale(s) {
@@ -596,34 +612,47 @@ function setScale(s) {
 }
 all("#presets button").forEach((b) => b.addEventListener("click", () => { if (!locked) setScale(1 / Number(b.dataset.ratio)); }));
 
-// ---------- AR session ----------
-let session = null, refSpace = null, hitSource = null, anchor = null, lastHit = null;
-let placed = false, locked = false, wantPlace = false;
+// ---------- XR sessions: AR (phone or headset passthrough) and VR (headset, a virtual backyard) ----------
+let session = null, mode = null, xrUI = false, refSpace = null, hitSource = null, anchor = null, lastHit = null;
+let placed = false, locked = false, wantPlace = null; // wantPlace: true (phone tap) or the pointer that asked
+let gpuDepth = false, roomOn = false, roomLive = false, arOK = false, vrOK = false;
 
 async function checkSupport() {
-  let ok = false;
-  try { ok = !!navigator.xr && (await navigator.xr.isSessionSupported("immersive-ar")); } catch { ok = false; }
-  startBtn.disabled = !ok;
-  note.textContent = ok ? "" : "Tabletop AR needs Chrome on an Android phone with ARCore. You can still turn and zoom the 3D preview here.";
+  try { arOK = !!navigator.xr && (await navigator.xr.isSessionSupported("immersive-ar")); } catch { arOK = false; }
+  try { vrOK = !!navigator.xr && (await navigator.xr.isSessionSupported("immersive-vr")); } catch { vrOK = false; }
+  startBtn.disabled = !arOK;
+  if (HEADSET) startBtn.querySelector("span").textContent = WALK ? "Start the walk in my space" : "Put it in my room";
+  vrBtn.hidden = !(vrOK && (HEADSET || !arOK || VR_FIRST));
+  if (VR_FIRST && !vrBtn.hidden) startBtn.before(vrBtn);
+  note.textContent = arOK || vrOK ? "" : VR_FIRST ? "The VR backyard needs a VR headset's browser, such as the Meta Quest browser. You can still turn and zoom the 3D preview here."
+    : "AR needs Chrome on an Android phone with ARCore, or a Meta Quest. You can still turn and zoom the 3D preview here.";
+}
+
+async function requestAR() {
+  const base = HEADSET
+    ? { requiredFeatures: [], optionalFeatures: ["local-floor", "hit-test", "anchors", "hand-tracking", "mesh-detection", "plane-detection", "layers"] }
+    : { requiredFeatures: ["hit-test"], optionalFeatures: ["dom-overlay", "anchors", "light-estimation"], domOverlay: { root: overlay } };
+  const depth = HEADSET ? { usagePreference: ["gpu-optimized", "cpu-optimized"], dataFormatPreference: [] }
+    : { usagePreference: ["cpu-optimized"], dataFormatPreference: ["luminance-alpha", "float32"] };
+  try {
+    return await navigator.xr.requestSession("immersive-ar", { ...base, optionalFeatures: [...base.optionalFeatures, "depth-sensing"], depthSensing: depth });
+  } catch {
+    return navigator.xr.requestSession("immersive-ar", base);
+  }
 }
 
 async function startAR() {
-  overlay.classList.add("on");
-  const init = { requiredFeatures: ["hit-test"], optionalFeatures: ["dom-overlay", "anchors", "light-estimation"], domOverlay: { root: overlay } };
-  try {
-    try {
-      session = await navigator.xr.requestSession("immersive-ar", { ...init, optionalFeatures: [...init.optionalFeatures, "depth-sensing"],
-        depthSensing: { usagePreference: ["cpu-optimized"], dataFormatPreference: ["luminance-alpha", "float32"] } });
-    } catch {
-      session = await navigator.xr.requestSession("immersive-ar", init);
-    }
-  } catch (e) {
+  if (session) return;
+  if (!HEADSET) overlay.classList.add("on");
+  try { session = await requestAR(); } catch (e) {
     overlay.classList.remove("on");
-    note.textContent = "AR couldn't start (" + (e.message || e.name) + "). Check that Google Play Services for AR is installed.";
+    note.textContent = "AR couldn't start (" + (e.message || e.name) + ")." + (HEADSET ? "" : " Check that Google Play Services for AR is installed.");
     return;
   }
+  mode = "ar";
+  const feats = session.enabledFeatures || [];
   // only ask for a light probe when the feature was granted (otherwise the request rejects)
-  if (!xrLight && (session.enabledFeatures || []).includes("light-estimation")) {
+  if (!xrLight && feats.includes("light-estimation")) {
     xrLight = new XREstimatedLight(renderer);
     xrLight.addEventListener("estimationstart", () => {
       scene.add(xrLight);
@@ -639,17 +668,25 @@ async function startAR() {
       applyReflections();
     });
   }
-  renderer.xr.setReferenceSpaceType("local");
+  camera.near = 0.01;
+  renderer.xr.setReferenceSpaceType(HEADSET ? "local-floor" : "local");
+  if (HEADSET) setShadowSize(1024);
   await renderer.xr.setSession(session);
   refSpace = renderer.xr.getReferenceSpace();
-  hitSource = await session.requestHitTestSource({ space: await session.requestReferenceSpace("viewer") });
-  session.addEventListener("end", endAR);
-  if (!session.domOverlayState) session.addEventListener("select", () => { if (!locked) wantPlace = true; }); // no overlay: tap = place
+  xrUI = HEADSET; // no DOM overlay on a headset: the menu, hints and bubbles are drawn in the scene, and controllers or hands drive it
+  if (!HEADSET && session.requestHitTestSource) hitSource = await session.requestHitTestSource({ space: await session.requestReferenceSpace("viewer") }).catch(() => null);
+  session.addEventListener("end", endXR);
+  session.addEventListener("select", (e) => { if (!session.domOverlayState && e.inputSource.targetRayMode === "screen" && !locked) wantPlace = true; }); // no overlay on a phone: tap = place
+  pointers.start(session, feats.includes("hit-test"));
   controls.enabled = false;
   failed.clear();
-  overlay.prepend(bubbles);
-  depthOn = (session.enabledFeatures || []).includes("depth-sensing") && session.depthUsage === "cpu-optimized";
-  depthLive = false;
+  if (!xrUI) overlay.prepend(bubbles); else bubbles.remove();
+  depthOn = feats.includes("depth-sensing") && session.depthUsage === "cpu-optimized";
+  gpuDepth = feats.includes("depth-sensing") && session.depthUsage === "gpu-optimized";
+  roomOn = feats.includes("mesh-detection") || feats.includes("plane-detection");
+  depthLive = roomLive = false;
+  occlOn = false; // off to start with: real-world depth is noisy at the floor; Options turns it on
+  $("occl").checked = false;
   depthChip.textContent = depthOn ? "Depth: starting…" : "Depth: off on this phone";
   placed = locked = false;
   model.visible = false;
@@ -659,19 +696,77 @@ async function startAR() {
   setLocked(false);
   lockBtn.disabled = true;
   applyReflections();
+  if (xrUI) showHint(true);
 }
 
-function endAR() {
+async function startVR() {
+  if (session) return;
+  try {
+    session = await navigator.xr.requestSession("immersive-vr", { optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking", "layers"] });
+  } catch (e) {
+    note.textContent = "VR couldn't start (" + (e.message || e.name) + ").";
+    return;
+  }
+  mode = "vr";
+  xrUI = true;
+  camera.near = 0.05; // life size only: a nearer near plane would waste depth precision on the far lawn
+  renderer.xr.setReferenceSpaceType("local-floor");
+  setShadowSize(HEADSET ? 1024 : 2048);
+  await renderer.xr.setSession(session);
+  session.addEventListener("end", endXR);
+  rig.start(renderer.xr.getReferenceSpace(), VR_START.x, VR_START.z, VR_START.yaw);
+  refSpace = renderer.xr.getReferenceSpace();
+  pointers.start(session, false);
+  scene.add(yard.group);
+  scene.background = yard.background;
+  scene.fog = yard.fog;
+  hemi.color.set(0xd8e8ff);
+  hemi.groundColor.set(0x5b6e3a);
+  contact.visible = false;
+  controls.enabled = false;
+  failed.clear();
+  bubbles.remove();
+  depthOn = gpuDepth = roomOn = depthLive = roomLive = false;
+  root.matrix.identity();
+  root.matrixWorldNeedsUpdate = true;
+  model.position.set(0, 0, 0);
+  model.rotation.set(0, 0, 0);
+  setScale(1);
+  model.visible = true;
+  placed = locked = true;
+  for (const m of vrModels) m.visible = true;
+  showHint(true);
+}
+
+function endXR() {
   hitSource = null;
   if (anchor) { anchor.delete?.(); anchor = null; }
+  pointers.stop();
+  rig.stop();
   session = null;
-  placed = locked = wantPlace = false;
+  if (mode === "vr") {
+    scene.remove(yard.group);
+    scene.background = null;
+    scene.fog = null;
+    hemi.color.set(0xffffff);
+    hemi.groundColor.set(0x8a7a60);
+    contact.visible = true;
+  }
+  for (const m of vrModels) m.visible = false;
+  mode = null;
+  xrUI = false;
+  placed = locked = false;
+  wantPlace = null;
   overlay.classList.remove("on");
   stage.append(bubbles);
-  depthOn = depthLive = false;
+  depthOn = depthLive = gpuDepth = roomOn = roomLive = false;
   occlusion.uniforms.uOcclude.value = 0;
+  materials().gravel.depthFunc = THREE.LessEqualDepth;
   seeMesh.visible = false;
   reticle.visible = false;
+  menu.mesh.visible = hud.mesh.visible = false;
+  menuPinned = false;
+  for (const c of cast) if (c.card) c.card.mesh.visible = false;
   root.matrix.identity();
   root.matrixWorldNeedsUpdate = true;
   model.position.set(0, 0, 0);
@@ -679,12 +774,21 @@ function endAR() {
   model.scale.setScalar(1);
   model.visible = true;
   controls.enabled = true;
+  camera.near = 0.01;
   scene.environment = roomEnv;
+  setShadowSize(2048);
   resize();
+}
+function setShadowSize(n) {
+  if (sun.shadow.mapSize.x === n) return;
+  sun.shadow.mapSize.set(n, n);
+  sun.shadow.map?.dispose();
+  sun.shadow.map = null;
 }
 
 $("exit").addEventListener("click", () => session?.end());
 startBtn.addEventListener("click", startAR);
+vrBtn.addEventListener("click", startVR);
 
 function setLocked(on) {
   locked = on;
@@ -706,7 +810,7 @@ function placeAt(hit, pose) {
   root.updateMatrixWorld(true);
   model.position.set(0, 0, 0);
   const life = model.scale.x > 0.5;
-  if (!placed) { // first placement: turn it so you see it the way the preview shows it, or at life size, porch first
+  if (!placed) { // first placement: turn it so you see it the way the preview shows it, or at life size, front door first
     xrView().getWorldPosition(camPos);
     root.worldToLocal(camPos);
     model.rotation.y = life ? Math.atan2(-camPos.x, -camPos.z) : Math.atan2(camPos.x, camPos.z) - Math.atan2(-10.2, 11.6);
@@ -719,7 +823,7 @@ function placeAt(hit, pose) {
   placed = true;
   lockBtn.disabled = false;
   if (anchor) { anchor.delete?.(); anchor = null; }
-  if (hit.createAnchor) hit.createAnchor().then((a) => { if (placed && !anchor) anchor = a; else a.delete?.(); }).catch(() => {});
+  if (hit?.createAnchor) hit.createAnchor().then((a) => { if (placed && !anchor) anchor = a; else a.delete?.(); }).catch(() => {});
   updateReadout();
 }
 
@@ -727,23 +831,27 @@ function xrView() {
   const cam = renderer.xr.getCamera();
   return cam.cameras && cam.cameras.length ? cam.cameras[0] : cam;
 }
+window.__headAt = () => (renderer.xr.isPresenting ? xrView().getWorldPosition(new THREE.Vector3()).toArray().map((v) => +v.toFixed(3)) : null); // for the headset check
 
-// ---------- gestures on the overlay: tap, one-finger drag, two-finger pinch + twist ----------
-const pointers = new Map();
+// ---------- phone gestures on the overlay: tap, one-finger drag, two-finger pinch + twist ----------
+const pointerTouches = new Map();
 let gesture = null;
 const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(), hitPoint = new THREE.Vector3();
 const rootQ = new THREE.Quaternion(), rootPos = new THREE.Vector3(), rootScale = new THREE.Vector3();
 
-function onTable(x, y, out, cam = xrView(), w = innerWidth, h = innerHeight) { // screen point → point on the plane the model stands on (world space)
+function tablePlane() { // the plane the model stands on, in world space
+  root.matrixWorld.decompose(rootPos, rootQ, rootScale);
+  return plane.setFromNormalAndCoplanarPoint(up.set(0, 1, 0).applyQuaternion(rootQ), rootPos);
+}
+function onTable(x, y, out, cam = xrView(), w = innerWidth, h = innerHeight) { // screen point → point on that plane (world space)
   ndc.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
   raycaster.setFromCamera(ndc, cam);
-  root.matrixWorld.decompose(rootPos, rootQ, rootScale);
-  plane.setFromNormalAndCoplanarPoint(up.set(0, 1, 0).applyQuaternion(rootQ), rootPos);
-  return raycaster.ray.intersectPlane(plane, out);
+  return raycaster.ray.intersectPlane(tablePlane(), out);
 }
+const rayOnTable = (ray, out) => ray.intersectPlane(tablePlane(), out);
 
 function beginGesture() {
-  const pts = [...pointers.values()];
+  const pts = [...pointerTouches.values()];
   if (gesture?.kind === "npc") endCarry();
   gesture = null;
   if (placed && pts.length === 1) { // a finger on Gus or Bolt carries them, locked or not
@@ -761,9 +869,9 @@ function beginGesture() {
 }
 
 function moveGesture() {
-  if (gesture?.kind === "npc") { const p = [...pointers.values()][0]; if (p) carry(gesture, p.x, p.y); return; }
+  if (gesture?.kind === "npc") { const p = [...pointerTouches.values()][0]; if (p) carry(gesture, p.x, p.y); return; }
   if (!gesture || locked) return;
-  const pts = [...pointers.values()];
+  const pts = [...pointerTouches.values()];
   if (gesture.kind === "drag" && pts.length === 1) {
     if (!gesture.moved && Math.hypot(pts[0].x - gesture.x0, pts[0].y - gesture.y0) < 10) return;
     gesture.moved = true;
@@ -781,21 +889,21 @@ overlay.addEventListener("beforexrselect", (e) => e.preventDefault()); // touche
 overlay.addEventListener("pointerdown", (e) => {
   if (e.target.closest("button, input, label, .ov-panel, .ov-player")) return;
   overlay.setPointerCapture?.(e.pointerId);
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
+  pointerTouches.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
   beginGesture();
 });
 overlay.addEventListener("pointermove", (e) => {
-  const p = pointers.get(e.pointerId);
+  const p = pointerTouches.get(e.pointerId);
   if (!p) return;
   p.x = e.clientX;
   p.y = e.clientY;
   moveGesture();
 });
 function pointerEnd(e) {
-  const p = pointers.get(e.pointerId);
+  const p = pointerTouches.get(e.pointerId);
   if (!p) return;
-  const tap = pointers.size === 1 && performance.now() - p.t0 < 300 && Math.hypot(p.x - p.x0, p.y - p.y0) < 10 && !(gesture && gesture.moved);
-  pointers.delete(e.pointerId);
+  const tap = pointerTouches.size === 1 && performance.now() - p.t0 < 300 && Math.hypot(p.x - p.x0, p.y - p.y0) < 10 && !(gesture && gesture.moved);
+  pointerTouches.delete(e.pointerId);
   if (tap && e.type === "pointerup" && placed && talkAt(p.x, p.y, xrView(), innerWidth, innerHeight)) { /* talked */ }
   else if (tap && !locked && e.type === "pointerup") wantPlace = true;
   beginGesture(); // the remaining finger(s) start a fresh gesture
@@ -808,7 +916,7 @@ const npcs = new THREE.Group(); // in the model, so they scale with it
 model.add(npcs);
 const grid = new NavGrid(20, 0.2, 0.2);
 const cast = [];
-let gus = null, bolt = null, npcOn = true;
+let gus = null, bolt = null, npcOn = true, soundOn = true;
 const bubbles = document.createElement("div");
 bubbles.className = "bubbles";
 stage.append(bubbles);
@@ -828,17 +936,21 @@ function loadCast() {
       c.bubble = Object.assign(document.createElement("div"), { className: "bubble", hidden: true });
       c.bubble.innerHTML = `<b>${c.name}</b><span></span><span class="rest"></span>`; // the rest keeps its size while it types
       bubbles.append(c.bubble);
+      c.card = new TextCard({ bubble: true }); // the same bubble, drawn in the scene for a headset
+      scene.add(c.card.mesh);
     }
     window.__npc = true;
   }).catch((e) => console.error("characters", e));
 }
 const sound = new Sound();
-all("[data-sound]").forEach((i) => i.addEventListener("change", () => {
-  all("[data-sound]").forEach((j) => (j.checked = i.checked));
-  sound.setOn(i.checked);
-  if (i.checked) sound.unlock();
-}));
-for (const el of [startBtn, canvas, overlay]) el.addEventListener("pointerdown", () => sound.unlock(), { capture: true });
+function setSound(on) {
+  soundOn = on;
+  all("[data-sound]").forEach((j) => (j.checked = on));
+  sound.setOn(on);
+  if (on) sound.unlock();
+}
+all("[data-sound]").forEach((i) => i.addEventListener("change", () => setSound(i.checked)));
+for (const el of [startBtn, vrBtn, canvas, overlay]) el.addEventListener("pointerdown", () => sound.unlock(), { capture: true });
 function setNpc(on) {
   npcOn = on;
   all("[data-npc]").forEach((i) => (i.checked = on));
@@ -849,12 +961,13 @@ all("[data-npc]").forEach((i) => i.addEventListener("change", () => setNpc(i.che
 const userAt = new THREE.Vector3(), camAt = new THREE.Vector3(), at = new THREE.Vector3();
 function viewer() { return renderer.xr.isPresenting ? xrView() : camera; }
 const lifeSize = () => renderer.xr.isPresenting && model.scale.x > 0.5; // the preview is unscaled but not "life size"
+const sees = () => depthLive || roomLive; // Bolt has real obstacles to go round
 function npcContext(dt) {
   const life = lifeSize();
   viewer().getWorldPosition(camAt);
   userAt.copy(camAt);
   model.worldToLocal(userAt);
-  return { dt, now: clock.elapsedTime, grid, user: { x: userAt.x, z: userAt.z }, life, depth: depthLive && life, scale: model.scale.x };
+  return { dt, now: clock.elapsedTime, grid, user: { x: userAt.x, z: userAt.z }, life, depth: sees() && life, scale: model.scale.x };
 }
 function tickCast(dt) {
   if (!cast.length || !npcs.visible) return;
@@ -887,13 +1000,26 @@ function pickAt(x, y, cam, w, h) {
   }
   return best;
 }
+// the character a controller ray passes close to (feet-to-head segment), if any; out = the closest point on the ray
+function pickRay(ray, out) {
+  if (!cast.length || !npcs.visible || !model.visible) return null;
+  let best = null, bestD = Infinity;
+  const s = model.scale.x, onRay = new THREE.Vector3();
+  for (const c of cast) {
+    c.root.localToWorld(ft.set(0, 0.1 * c.height, 0));
+    c.root.localToWorld(hd.set(0, c.height, 0));
+    const d = Math.sqrt(ray.distanceSqToSegment(ft, hd, onRay)), reach = Math.max(0.025, c.radius * 1.1 * s, 0.012 * onRay.distanceTo(ray.origin));
+    if (d < reach && d < bestD) { best = c; bestD = d; out?.copy(onRay); }
+  }
+  return best;
+}
 function talkAt(x, y, cam, w, h) { // a tap on a character makes it talk
   const c = pickAt(x, y, cam, w, h);
   if (c) c.tap(clock.elapsedTime, npcContext(0));
   return !!c;
 }
-// carrying: past a small slop the character is picked up and follows the finger over the floor, keeping the
-// offset between where the finger landed and its feet
+// carrying: past a small slop the character is picked up and follows the finger (or ray) over the floor, keeping the
+// offset between where it was grabbed and its feet
 const floorAt = new THREE.Vector3();
 function carry(g, x, y, cam, w, h) {
   if (!g.moved) {
@@ -901,18 +1027,20 @@ function carry(g, x, y, cam, w, h) {
     g.moved = true;
     g.c.grab(clock.elapsedTime);
   }
-  if (!onTable(x, y, floorAt, cam, w, h)) return;
-  model.worldToLocal(floorAt);
-  g.off ||= { x: g.c.pos.x - floorAt.x, z: g.c.pos.z - floorAt.z };
-  let px = floorAt.x + g.off.x, pz = floorAt.z + g.off.z;
+  if (onTable(x, y, floorAt, cam, w, h)) carryTo(g, floorAt);
+}
+function carryTo(g, world) {
+  const p = model.worldToLocal(world.clone());
+  g.off ||= { x: g.c.pos.x - p.x, z: g.c.pos.z - p.z };
+  let px = p.x + g.off.x, pz = p.z + g.off.z;
   if (!lifeSize()) { px = THREE.MathUtils.clamp(px, -HOUSE.padX, HOUSE.padX); pz = THREE.MathUtils.clamp(pz, -HOUSE.padZ, HOUSE.padZ); } // on the table: not off the gravel
   g.c.drag(px, pz, grid);
 }
 // letting go: the flick becomes a throw. What stops it: the walls (Gus can go through the doorways), the pad's edge
-// on the table, and at life size whatever real obstacles depth sensing found
+// on the table, and at life size whatever real obstacles depth sensing or the room scan found
 function letGo(c) {
   const life = lifeSize();
-  const block = grid.mask({ doors: c === gus, seen: life && depthLive, limit: life ? null : { x: HOUSE.padX, z: HOUSE.padZ } }).slice();
+  const block = grid.mask({ doors: c === gus, seen: life && sees(), limit: life ? null : { x: HOUSE.padX, z: HOUSE.padZ } }).slice();
   c.drop(clock.elapsedTime, { scale: model.scale.x, block });
 }
 function endCarry() {
@@ -920,6 +1048,20 @@ function endCarry() {
 }
 function placeBubbles() {
   const cam = viewer(), ar = renderer.xr.isPresenting, w = ar ? innerWidth : stage.clientWidth, h = ar ? innerHeight : stage.clientHeight;
+  if (xrUI) { // headset: bubbles in the scene, above their heads, facing you
+    viewer().getWorldPosition(camAt);
+    for (const c of cast) {
+      const show = npcs.visible && model.visible && clock.elapsedTime < c.speechUntil;
+      c.card.mesh.visible = show;
+      if (!show) continue;
+      const n = Math.max(1, Math.ceil((clock.elapsedTime - c.speechStart) * (c.revealRate || 30)));
+      c.card.set(c.name, c.speech, n);
+      c.root.localToWorld(hd.set(0, c.height + 0.08, 0));
+      c.card.place(hd.addScaledVector(up.set(0, 1, 0), 0.02), cam, camAt, 0.12);
+      c.card.mesh.position.y += c.card.mesh.scale.y * 0.5;
+    }
+    return;
+  }
   const shown = [];
   for (const c of cast) {
     const show = npcs.visible && model.visible && clock.elapsedTime < c.speechUntil;
@@ -967,8 +1109,8 @@ canvas.addEventListener("pointerup", (e) => {
   downAt = null;
 });
 
-// ---------- depth sensing: real things hide the model, and (at life size) Bolt maps real obstacles ----------
-let depthOn = false, depthLive = false, occlOn = true, seeOn = false, patchTimer = 0, fadeTimer = 0, seeTimer = 0;
+// ---------- real-world depth and room scans: real things hide the model; at life size Bolt maps real obstacles ----------
+let depthOn = false, depthLive = false, occlOn = false, seeOn = false, patchTimer = 0, fadeTimer = 0, seeTimer = 0, roomTimer = 0;
 const depthChip = $("depthChip");
 const SEE_MAX = 3000;
 const seeMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.17, 0.17).rotateX(-Math.PI / 2),
@@ -976,11 +1118,13 @@ const seeMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.17, 0.17).rota
 seeMesh.visible = false;
 seeMesh.frustumCulled = false;
 model.add(seeMesh);
-$("occl").addEventListener("change", (e) => { occlOn = e.target.checked; });
-$("see").addEventListener("change", (e) => { seeOn = e.target.checked; seeMesh.visible = seeOn; });
+function setOccl(on) { occlOn = on; $("occl").checked = on; }
+function setSee(on) { seeOn = on; $("see").checked = on; seeMesh.visible = on; }
+$("occl").addEventListener("change", (e) => setOccl(e.target.checked));
+$("see").addEventListener("change", (e) => setSee(e.target.checked));
 const invProj = new THREE.Matrix4(), viewWorld = new THREE.Matrix4(), toModel = new THREE.Matrix4(), pt = new THREE.Vector3();
 const viewInv = new THREE.Matrix4(), gq = new THREE.Quaternion(), gp = new THREE.Vector3(), gn = new THREE.Vector3();
-function readDepth(frame, dt) {
+function readDepth(frame, dt) { // a phone's CPU depth map
   const view = frame.getViewerPose(refSpace)?.views[0];
   let info = null;
   try { info = view && frame.getDepthInformation(view); } catch { info = null; }
@@ -1027,19 +1171,330 @@ function readDepth(frame, dt) {
     else if (Math.abs(pt.y) < 0.1) grid.observe(pt.x, pt.z, false);
   }
   if ((fadeTimer += dt) > 0.25) { grid.fade(fadeTimer); fadeTimer = 0; }
-  if (seeOn && (seeTimer -= dt) <= 0) {
-    seeTimer = 0.3;
-    let k = 0;
-    const m4 = new THREE.Matrix4();
-    for (let i = 0; i < grid.seen.length && k < SEE_MAX; i++) {
-      if (grid.seen[i] < 0.5) continue;
-      const x = grid.cx(i), z = grid.cz(i);
-      if (Math.hypot(x - userAt.x, z - userAt.z) > 12) continue;
-      seeMesh.setMatrixAt(k++, m4.makeTranslation(x, 0.02, z));
+  drawSeen(dt);
+}
+// a headset's room scan (Space Setup): the room mesh and planes, every few seconds, into Bolt's obstacle grid
+const roomM = new THREE.Matrix4(), tA = new THREE.Vector3(), tB = new THREE.Vector3(), tC = new THREE.Vector3();
+function readRoom(frame, dt) {
+  if ((roomTimer -= dt) > 0) return;
+  roomTimer = 3;
+  if (!lifeSize() || !placed) return;
+  model.updateMatrixWorld();
+  const inv = new THREE.Matrix4().copy(model.matrixWorld).invert();
+  let n = 0;
+  const mark = (v) => { if (v.y > 0.2 && v.y < 1.8) { grid.observe(v.x, v.z, true); grid.observe(v.x, v.z, true); grid.observe(v.x, v.z, true); n++; } };
+  frame.detectedMeshes?.forEach((m) => {
+    const pose = frame.getPose(m.meshSpace, refSpace);
+    if (!pose) return;
+    roomM.fromArray(pose.transform.matrix).premultiply(inv);
+    const v = m.vertices, ix = m.indices;
+    for (let i = 0; i + 2 < ix.length; i += 3) { // sample each triangle every ~15 cm
+      tA.fromArray(v, ix[i] * 3).applyMatrix4(roomM);
+      tB.fromArray(v, ix[i + 1] * 3).applyMatrix4(roomM);
+      tC.fromArray(v, ix[i + 2] * 3).applyMatrix4(roomM);
+      const k = Math.min(12, Math.ceil(Math.max(tA.distanceTo(tB), tB.distanceTo(tC), tC.distanceTo(tA)) / 0.15));
+      for (let a = 0; a <= k; a++) for (let b = 0; a + b <= k; b++) {
+        const wa = a / k || 0, wb = b / k || 0;
+        mark(pt.copy(tA).multiplyScalar(1 - wa - wb).addScaledVector(tB, wa).addScaledVector(tC, wb));
+      }
     }
-    seeMesh.count = k;
-    seeMesh.instanceMatrix.needsUpdate = true;
+  });
+  frame.detectedPlanes?.forEach((p) => {
+    const pose = frame.getPose(p.planeSpace, refSpace);
+    if (!pose || !p.polygon?.length) return;
+    roomM.fromArray(pose.transform.matrix).premultiply(inv);
+    const poly = p.polygon.map((q) => new THREE.Vector2(q.x, q.z)), bb = new THREE.Box2().setFromPoints(poly);
+    for (let x = bb.min.x; x <= bb.max.x; x += 0.15) for (let z = bb.min.y; z <= bb.max.y; z += 0.15) {
+      let inside = false; // even-odd test in the plane
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i], b = poly[j];
+        if ((a.y > z) !== (b.y > z) && x < ((b.x - a.x) * (z - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+      }
+      if (inside) mark(pt.set(x, 0, z).applyMatrix4(roomM));
+    }
+  });
+  if (n && !roomLive) roomLive = true;
+  grid.fade(3);
+}
+function drawSeen(dt) { // "Show what Bolt sees": the cells he treats as blocked
+  if (!seeOn || (seeTimer -= dt) > 0) return;
+  seeTimer = 0.3;
+  let k = 0;
+  const m4 = new THREE.Matrix4();
+  for (let i = 0; i < grid.seen.length && k < SEE_MAX; i++) {
+    if (grid.seen[i] < 0.5) continue;
+    const x = grid.cx(i), z = grid.cz(i);
+    if (Math.hypot(x - userAt.x, z - userAt.z) > 12) continue;
+    seeMesh.setMatrixAt(k++, m4.makeTranslation(x, 0.02, z));
   }
+  seeMesh.count = k;
+  seeMesh.instanceMatrix.needsUpdate = true;
+}
+
+// ---------- headset: controllers and hands, the menu, the hint line, VR movement ----------
+const yard = buildYard();
+const rig = new Rig(renderer);
+const vrModels = []; // controller and hand models: VR only (in passthrough you see your real ones)
+{
+  const cf = new XRControllerModelFactory(), hf = new XRHandModelFactory();
+  for (const i of [0, 1]) {
+    const grip = renderer.xr.getControllerGrip(i), hand = renderer.xr.getHand(i);
+    const cm = cf.createControllerModel(grip), hm = hf.createHandModel(hand, "mesh");
+    grip.add(cm);
+    hand.add(hm);
+    scene.add(hand);
+    cm.visible = hm.visible = false;
+    vrModels.push(cm, hm);
+  }
+}
+const pointers = new Pointers(renderer, scene, {
+  selectstart: (p) => press(p, "select"),
+  selectend: (p) => release(p, "select"),
+  squeezestart: (p) => press(p, "squeeze"),
+  squeezeend: (p) => release(p, "squeeze"),
+  cancel: (p) => release(p, p.action?.via),
+  button: (p, name) => {
+    if (!xrUI) return;
+    if (name === "a") toggleMenuPin();
+    else if (name === "b" && mode === "ar" && placed) setLocked(!locked);
+  },
+});
+const RATIOS = [50, 20, 10, 1];
+const nearRatio = (r) => Math.abs(r - 1 / model.scale.x) / (1 / model.scale.x) < 0.03;
+const menu = new Panel([
+  { items: [{ kind: "title", text: () => (mode === "vr" ? "Greenhouse v2 · VR backyard" : "Greenhouse v2" + (readoutText() ? " · " + readoutText() : "")) }] },
+  { items: [["greenhouse", "Finished"], ["frame", "Frame"], ["assembly", "Assembly"]].map(([m, label]) => ({ text: label, on: () => current === m, act: () => showModel(m) })) },
+  { show: () => current === "assembly", items: [{ kind: "note", text: () => captionText() }] },
+  { show: () => current === "assembly", items: [
+    { icon: true, text: "prev", act: () => showStep(stepIndex - 1) },
+    { icon: true, text: () => (playing ? "pause" : "play"), accent: true, act: () => setPlaying(!playing) },
+    { icon: true, text: "next", act: () => showStep(stepIndex + 1) },
+    { kind: "bar", value: () => stepT / stepLen, flex: 2.5 },
+  ] },
+  { items: [["flat", "Flat"], ["baked", "Baked"], ["photo", "Photo wood"]].map(([l, label]) => ({ text: label, on: () => look === l, act: () => setLook(l) })) },
+  { show: () => mode === "ar", items: RATIOS.map((r) => ({ text: r === 1 ? "Life size" : "1:" + r, on: () => nearRatio(r), off: () => locked, act: () => { if (!locked) setScale(1 / r); } })) },
+  { items: [{ text: "Gus and Bolt", on: () => npcOn, act: () => setNpc(!npcOn) }, { text: "Sound", on: () => soundOn, act: () => setSound(!soundOn) }] },
+  { show: () => mode === "ar" && (gpuDepth || depthLive || roomOn), items: [
+    { show: () => gpuDepth || depthLive, text: "Hide behind real things", on: () => occlOn, act: () => setOccl(!occlOn) },
+    { show: () => roomOn || depthLive, text: "Show what Bolt sees", on: () => seeOn, off: () => !lifeSize(), act: () => setSee(!seeOn) },
+  ] },
+  { items: [
+    { show: () => mode === "ar", text: () => (locked ? "Unlock" : "Lock"), on: () => locked, off: () => !placed, act: () => { if (placed) setLocked(!locked); } },
+    { text: () => (menuPinned ? "Unpin menu" : "Pin menu"), act: () => toggleMenuPin() },
+    { text: "Exit", accent: true, act: () => session?.end() },
+  ] },
+]);
+menu.mesh.visible = false;
+scene.add(menu.mesh);
+let menuPinned = false, menuAtHand = false;
+const head = new THREE.Vector3(), headFwd = new THREE.Vector3(), tmpV = new THREE.Vector3(), tmpW = new THREE.Vector3();
+function toggleMenuPin() {
+  menuPinned = !menuPinned;
+  if (!menuPinned) return;
+  menu.refresh();
+  tmpW.copy(headFwd).setY(0).normalize();
+  menu.mesh.position.copy(head).addScaledVector(tmpW, 0.6).add(tmpV.set(0, -0.2, 0));
+  menu.mesh.lookAt(head);
+}
+function placeMenu() { // pinned in front of you, or shown above your left hand while you look at it
+  const left = pointers.byHand("left");
+  if (!menuPinned) {
+    let show = false;
+    if (left && !(left.action && left.action.kind !== "ui")) {
+      tmpV.copy(left.gripPos).sub(head);
+      const d = tmpV.length(), ang = tmpV.normalize().angleTo(headFwd);
+      show = d < 0.85 && ang < (menuAtHand ? 0.6 : 0.42);
+    }
+    menuAtHand = show;
+    if (show) {
+      menu.refresh();
+      menu.mesh.position.copy(left.gripPos).add(tmpV.set(0, 0.07 + menu.mesh.scale.y / 2, 0));
+      menu.mesh.lookAt(head);
+    }
+  }
+  menu.mesh.visible = menuPinned || menuAtHand;
+  if (menu.mesh.visible) menu.refresh();
+}
+const hud = new TextCard({ w: 1000, h: 170 });
+scene.add(hud.mesh);
+let hudText = "", hudUntil = 0;
+const hudPos = new THREE.Vector3();
+function showHint(snap) { hudUntil = clock.elapsedTime + 9; if (snap) hudPos.set(0, -100, 0); }
+function headsetHint() {
+  const pinch = pointers.hands, trig = pinch ? "pinch" : "pull the trigger";
+  if (mode === "vr") return `Left stick: walk · right stick: turn · ${trig} on the grass to teleport · look at your left hand for the menu`;
+  const life = model.scale.x > 0.5;
+  if (!placed) return lastHit ? `Point where it should go and ${trig}` + (life ? " (the front of the gravel)" : "") : "Point at the floor or a table";
+  if (locked) return life ? `Locked. Bolt follows you · point at Gus or Bolt and ${trig} to talk, hold to carry` : `Locked in place. Walk round it · look at your left hand for the menu`;
+  return pinch ? "Pinch-drag to move · pinch with both hands to resize and turn · pinch again elsewhere to re-place"
+    : "Trigger-drag to move · both grips to resize and turn · thumbstick: turn and resize · B/Y: lock";
+}
+function placeHud(dt) {
+  const text = headsetHint();
+  if (text !== hudText) { hudText = text; showHint(); }
+  const show = clock.elapsedTime < hudUntil && !menu.mesh.visible;
+  hud.mesh.visible = show;
+  if (!show) return;
+  hud.set("", text);
+  tmpV.copy(headFwd).setY(0).normalize();
+  tmpW.copy(head).addScaledVector(tmpV, 1.2).add(up.set(0, -0.38, 0));
+  if (hudPos.y < -50) hudPos.copy(tmpW); else hudPos.lerp(tmpW, 1 - Math.exp(-dt * 3)); // follows you, lazily
+  hud.place(hudPos, xrView(), head, 0.1);
+}
+
+// press / release: menu, characters, then moving the model (AR) or teleporting (VR)
+function menuHit(p) {
+  if (!menu.mesh.visible) return null;
+  raycaster.set(p.ray.origin, p.ray.direction);
+  const h = raycaster.intersectObject(menu.mesh)[0];
+  return h ? { point: h.point, item: menu.itemAt(h.uv) } : null;
+}
+const handInRoot = (p, out = new THREE.Vector3()) => root.worldToLocal(out.copy(p.gripPos));
+function handYaw(p) { // the controller's heading in the root frame
+  root.matrixWorld.decompose(rootPos, rootQ, rootScale);
+  const f = tmpV.set(0, 0, -1).applyQuaternion(p.gripQuat).applyQuaternion(rootQ.invert());
+  return Math.atan2(-f.x, -f.z);
+}
+function press(p, via) {
+  if (!session || !xrUI) return;
+  sound.unlock();
+  const now = clock.elapsedTime;
+  if (via === "select") {
+    const m = menuHit(p);
+    if (m) { if (m.item && !m.item.off?.()) m.item.act(); p.action = { kind: "ui", via }; return; }
+    const c = pickRay(p.ray);
+    if (c && (placed || mode === "vr")) { p.action = { kind: "npc", via, c, t0: now, from: rayOnTable(p.ray, new THREE.Vector3()), g: { c, moved: false } }; return; }
+    if (mode === "vr") { p.action = { kind: "teleport", via }; return; }
+  }
+  if (mode !== "ar") return;
+  if (!placed || locked) { if (via === "select") p.action = { kind: "tap", via }; return; }
+  const other = pointers.list.find((q) => q !== p && q.action && ["drag", "grab", "tap"].includes(q.action.kind));
+  if (other) { // two hands: resize and turn
+    const a = handInRoot(p), b = handInRoot(other);
+    const pinch = { kind: "pinch", p, q: other, d0: Math.max(0.03, Math.hypot(b.x - a.x, b.z - a.z)), a0: Math.atan2(b.z - a.z, b.x - a.x), s0: model.scale.x, r0: model.rotation.y };
+    p.action = { ...pinch, via };
+    other.action = { ...pinch, via: other.action.via };
+    return;
+  }
+  if (via === "squeeze") p.action = { kind: "grab", via, start: handInRoot(p), pos0: model.position.clone(), yaw0: model.rotation.y, hand0: handYaw(p) };
+  else p.action = { kind: "drag", via, from: rayOnTable(p.ray, new THREE.Vector3()), start: model.position.clone(), moved: false };
+}
+function release(p, via) {
+  const a = p.action;
+  if (!a || a.via !== via) return;
+  p.action = null;
+  if (a.kind === "npc") {
+    if (a.g.moved) { if (a.c.held) letGo(a.c); } else a.c.tap(clock.elapsedTime, npcContext(0));
+  } else if (a.kind === "teleport") {
+    if (rayOnTable(p.ray, tmpV) && tmpV.distanceTo(head) < 25 && p.ray.direction.y < -0.05) rig.move(tmpV.x - head.x, tmpV.z - head.z);
+  } else if (a.kind === "tap" || (a.kind === "drag" && !a.moved)) {
+    if (!locked) wantPlace = p;
+  } else if (a.kind === "pinch") {
+    const o = a.p === p ? a.q : a.p;
+    if (o.action?.kind === "pinch") o.action = null;
+  }
+}
+function holdActions(dt) { // carry on whatever each pointer is doing
+  const now = clock.elapsedTime;
+  for (const p of pointers.list) {
+    const a = p.action;
+    if (!a) continue;
+    if (a.kind === "npc") {
+      if (!rayOnTable(p.ray, floorAt)) continue;
+      if (!a.g.moved) {
+        if (now - a.t0 < 0.22 && !(a.from && floorAt.distanceTo(a.from) > 0.02 * Math.max(model.scale.x * 4, 0.3))) continue;
+        a.g.moved = true;
+        a.c.grab(now);
+      }
+      carryTo(a.g, floorAt);
+    } else if (a.kind === "drag" && !locked) {
+      if (!a.from || !rayOnTable(p.ray, hitPoint)) continue;
+      if (!a.moved && hitPoint.distanceTo(a.from) < 0.015) continue;
+      a.moved = true;
+      root.matrixWorld.decompose(rootPos, rootQ, rootScale);
+      const delta = hitPoint.sub(a.from).applyQuaternion(rootQ.invert());
+      model.position.set(a.start.x + delta.x, 0, a.start.z + delta.z);
+    } else if (a.kind === "grab" && !locked) {
+      const cur = handInRoot(p), d = handYaw(p) - a.hand0, c = Math.cos(d), s = Math.sin(d);
+      const ox = a.pos0.x - a.start.x, oz = a.pos0.z - a.start.z;
+      model.position.set(cur.x + ox * c + oz * s, 0, cur.z - ox * s + oz * c);
+      model.rotation.y = a.yaw0 + d;
+    } else if (a.kind === "pinch" && a.p === p && !locked) {
+      const A = handInRoot(a.p), B = handInRoot(a.q);
+      setScale(a.s0 * Math.pow(Math.max(0.01, Math.hypot(B.x - A.x, B.z - A.z)) / a.d0, 3));
+      model.rotation.y = a.r0 - (Math.atan2(B.z - A.z, B.x - A.x) - a.a0);
+    }
+  }
+}
+let snapReady = true;
+function sticks(dt) {
+  for (const p of pointers.list) {
+    if (!p.source) continue;
+    const [x, y] = p.axes;
+    if (mode === "vr") {
+      if (p.handed === "left") { // walk where you look
+        if (!x && !y) continue;
+        tmpV.copy(headFwd).setY(0).normalize();
+        tmpW.set(-tmpV.z, 0, tmpV.x);
+        rig.move((tmpV.x * -y + tmpW.x * x) * 1.8 * dt, (tmpV.z * -y + tmpW.z * x) * 1.8 * dt);
+      } else { // snap turn
+        if (Math.abs(x) > 0.7 && snapReady) { rig.turn(-Math.sign(x) * Math.PI / 6, head); snapReady = false; }
+        else if (Math.abs(x) < 0.3) snapReady = true;
+      }
+    } else if (placed && !locked && (x || y)) {
+      model.rotation.y -= x * dt * 1.6;
+      setScale(model.scale.x * Math.exp(-y * dt * 1.4));
+    }
+  }
+}
+// where the pointer would put the model: a hit-test result on a level surface, or else the floor (local-floor y = 0)
+const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), floorM = new THREE.Matrix4();
+function aimAt(p) {
+  if (p.hit && horizontal(p.hit.pose)) return p.hit;
+  if (!HEADSET || !p.ray.intersectPlane(floorPlane, tmpW) || tmpW.distanceTo(p.ray.origin) > 15) return null;
+  return { hit: null, pose: { transform: { matrix: floorM.makeTranslation(tmpW.x, 0, tmpW.z).elements, orientation: { x: 0, y: 0, z: 0, w: 1 } } } };
+}
+function headsetFrame(frame, dt) {
+  pointers.update(frame, refSpace);
+  const view = xrView();
+  view.getWorldPosition(head);
+  view.getWorldDirection(headFwd);
+  placeMenu();
+  holdActions(dt);
+  sticks(dt);
+  if (mode === "vr") { view.getWorldPosition(head); view.getWorldDirection(headFwd); } // after moving
+  // reticle: where the active pointer would place the model (AR), or the teleport spot (VR)
+  const act = pointers.active?.source ? pointers.active : pointers.list.find((p) => p.source);
+  lastHit = null;
+  if (mode === "ar" && act && !locked) {
+    lastHit = aimAt(act);
+    if (lastHit) reticle.matrix.fromArray(lastHit.pose.transform.matrix);
+  }
+  const tele = pointers.list.find((p) => p.action?.kind === "teleport");
+  if (tele && rayOnTable(tele.ray, tmpV) && tele.ray.direction.y < -0.05) { reticle.matrix.makeTranslation(tmpV.x, 0.01, tmpV.z); lastHit = true; }
+  reticle.visible = !!lastHit && !pointers.list.some((p) => ["drag", "grab", "pinch"].includes(p.action?.kind));
+  ring.scale.setScalar(mode === "vr" ? 5 : model.scale.x > 0.5 ? 4 : 1);
+  if (wantPlace && wantPlace !== true) { // a pointer asked to place: where it points now
+    const h = aimAt(wantPlace);
+    wantPlace = null;
+    if (h && !locked) placeAt(h.hit, h.pose);
+  }
+  // ray visuals and menu hover
+  menu.hover = null;
+  for (const p of pointers.list) {
+    if (!p.source) continue;
+    const m = menuHit(p);
+    if (m) { if (m.item) menu.hover = m.item; pointers.show(p, m.point); continue; }
+    const c = pickRay(p.ray, tmpW);
+    if (c) { pointers.show(p, tmpW); continue; }
+    if (p === act && reticle.visible) { pointers.show(p, tmpW.setFromMatrixPosition(reticle.matrix)); continue; }
+    pointers.show(p, null);
+  }
+  // headset depth occlusion (three draws it): on or off, and never against the gravel, which lies on the real floor
+  const dm = gpuDepth ? renderer.xr.getDepthSensingMesh?.() : null;
+  if (dm) dm.visible = occlOn;
+  materials().gravel.depthFunc = dm && occlOn ? THREE.AlwaysDepth : THREE.LessEqualDepth;
+  placeHud(dt);
 }
 
 // ---------- loop ----------
@@ -1061,35 +1516,42 @@ function guard(what, fn) {
     failed.add(what);
     console.error(what, e);
     depthChip.textContent = `${what} stopped: ${e.message || e}`;
+    if (xrUI) { hudText = `${what} stopped: ${e.message || e}`; hud.set("", hudText); showHint(); }
     if (what === "depth") { depthOn = false; occlusion.uniforms.uOcclude.value = 0; }
   }
 }
 renderer.setAnimationLoop((time, frame) => {
   const dt = clock.getDelta();
-  if (frame && hitSource) {
-    const hits = frame.getHitTestResults(hitSource);
-    lastHit = null;
-    if (hits.length) {
-      const pose = hits[0].getPose(refSpace);
-      if (pose && horizontal(pose)) { lastHit = { hit: hits[0], pose }; reticle.matrix.fromArray(pose.transform.matrix); }
+  if (frame && session) {
+    refSpace = renderer.xr.getReferenceSpace();
+    if (xrUI) guard("headset", () => headsetFrame(frame, dt));
+    else if (hitSource) { // phone: the ring follows the middle of the screen
+      const hits = frame.getHitTestResults(hitSource);
+      lastHit = null;
+      if (hits.length) {
+        const pose = hits[0].getPose(refSpace);
+        if (pose && horizontal(pose)) { lastHit = { hit: hits[0], pose }; reticle.matrix.fromArray(pose.transform.matrix); }
+      }
+      if (wantPlace === true) { wantPlace = null; if (lastHit && !locked) placeAt(lastHit.hit, lastHit.pose); }
+      reticle.visible = !!lastHit && !locked && !(gesture && pointerTouches.size);
+      const life = model.scale.x > 0.5;
+      ring.scale.setScalar(life ? 4 : 1);
+      hint.textContent = locked ? (life ? "Locked. Bolt follows you · tap Gus or Bolt to talk · drag them to move them" : "Locked in place. Walk around it.")
+        : placed ? (life ? "Tap Lock, then go for a walk · drag to move · twist to turn" : "Drag to move · pinch to resize · twist to turn · tap to re-place")
+        : lastHit ? (life ? "Tap where the front of the greenhouse should be" : "Tap to place the greenhouse")
+        : life ? "Point at the ground and move the phone slowly" : "Point at a table and move the phone slowly";
     }
-    if (wantPlace) { wantPlace = false; if (lastHit && !locked) placeAt(lastHit.hit, lastHit.pose); }
-    if (anchor && frame.trackedAnchors?.has(anchor)) {
+    if (mode === "ar" && anchor && frame.trackedAnchors?.has(anchor)) {
       const p = frame.getPose(anchor.anchorSpace, refSpace);
       if (p) { root.matrix.fromArray(p.transform.matrix); root.matrixWorldNeedsUpdate = true; }
     }
-    reticle.visible = !!lastHit && !locked && !(gesture && pointers.size);
-    const life = model.scale.x > 0.5;
-    ring.scale.setScalar(life ? 4 : 1);
-    hint.textContent = locked ? (life ? "Locked. Bolt follows you · tap Gus or Bolt to talk · drag them to move them" : "Locked in place. Walk around it.")
-      : placed ? (life ? "Tap Lock, then go for a walk · drag to move · twist to turn" : "Drag to move · pinch to resize · twist to turn · tap to re-place")
-      : lastHit ? (life ? "Tap where the front of the greenhouse should be" : "Tap to place the greenhouse")
-      : life ? "Point at the ground and move the phone slowly" : "Point at a table and move the phone slowly";
     if (depthOn) guard("depth", () => readDepth(frame, dt));
+    if (roomOn) guard("room", () => { readRoom(frame, dt); drawSeen(dt); });
+    if (xrUI) updateReadout();
   } else controls.update();
   if (!renderer.xr.isPresenting || placed) guard("characters", () => tickCast(dt));
   tickPlayer(dt);
-  fitShadow();
+  fitShadow(dt);
   updateClip();
   renderer.render(scene, camera);
   guard("bubbles", placeBubbles);
@@ -1099,7 +1561,7 @@ renderer.setAnimationLoop((time, frame) => {
 resize();
 checkSupport();
 showModel("greenhouse").then(() => { window.__ready = true; loadCast(); }).catch((e) => {
-  $("loading").textContent = "Couldn't load the model.";
+  $("loading").textContent = "Couldn't build the model.";
   console.error(e);
 });
 </script>
