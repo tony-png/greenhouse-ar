@@ -217,6 +217,7 @@
         <label class="switch"><input type="checkbox" data-sound checked> Sound</label>
       </div>
       <div class="row">
+        <label class="switch"><input type="checkbox" id="floor"> Gravel floor</label>
         <label class="switch"><input type="checkbox" id="occl" disabled> Hide behind real things</label>
       </div>
       <div class="row">
@@ -687,6 +688,7 @@ async function startAR() {
   depthLive = roomLive = false;
   occlOn = false; // off to start with: real-world depth is noisy at the floor; Options turns it on
   $("occl").checked = false;
+  setFloor(false); // the real floor is right there
   depthChip.textContent = depthOn ? "Depth: starting…" : "Depth: off on this phone";
   placed = locked = false;
   model.visible = false;
@@ -734,6 +736,7 @@ async function startVR() {
   setScale(1);
   model.visible = true;
   placed = locked = true;
+  setFloor(true);
   for (const m of vrModels) m.visible = true;
   showHint(true);
 }
@@ -762,6 +765,7 @@ function endXR() {
   depthOn = depthLive = gpuDepth = roomOn = roomLive = false;
   occlusion.uniforms.uOcclude.value = 0;
   materials().gravel.depthFunc = THREE.LessEqualDepth;
+  setFloor(true);
   seeMesh.visible = false;
   reticle.visible = false;
   menu.mesh.visible = hud.mesh.visible = false;
@@ -1119,6 +1123,10 @@ seeMesh.visible = false;
 seeMesh.frustumCulled = false;
 model.add(seeMesh);
 function setOccl(on) { occlOn = on; $("occl").checked = on; }
+// the gravel pad: off in AR, so your real floor (and your feet) show through; on in the preview and the VR backyard
+let floorOn = true;
+function setFloor(on) { floorOn = on; $("floor").checked = on; materials().gravel.visible = on; }
+$("floor").addEventListener("change", (e) => setFloor(e.target.checked));
 function setSee(on) { seeOn = on; $("see").checked = on; seeMesh.visible = on; }
 $("occl").addEventListener("change", (e) => setOccl(e.target.checked));
 $("see").addEventListener("change", (e) => setSee(e.target.checked));
@@ -1273,7 +1281,8 @@ const menu = new Panel([
   ] },
   { items: [["flat", "Flat"], ["baked", "Baked"], ["photo", "Photo wood"]].map(([l, label]) => ({ text: label, on: () => look === l, act: () => setLook(l) })) },
   { show: () => mode === "ar", items: RATIOS.map((r) => ({ text: r === 1 ? "Life size" : "1:" + r, on: () => nearRatio(r), off: () => locked, act: () => { if (!locked) setScale(1 / r); } })) },
-  { items: [{ text: "Gus and Bolt", on: () => npcOn, act: () => setNpc(!npcOn) }, { text: "Sound", on: () => soundOn, act: () => setSound(!soundOn) }] },
+  { items: [{ text: "Gus and Bolt", on: () => npcOn, act: () => setNpc(!npcOn) }, { text: "Sound", on: () => soundOn, act: () => setSound(!soundOn) },
+    { show: () => mode === "ar", text: "Gravel floor", on: () => floorOn, act: () => setFloor(!floorOn) }] },
   { show: () => mode === "ar" && (gpuDepth || depthLive || roomOn), items: [
     { show: () => gpuDepth || depthLive, text: "Hide behind real things", on: () => occlOn, act: () => setOccl(!occlOn) },
     { show: () => roomOn || depthLive, text: "Show what Bolt sees", on: () => seeOn, off: () => !lifeSize(), act: () => setSee(!seeOn) },

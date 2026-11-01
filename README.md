@@ -52,7 +52,7 @@ The session uses `local-floor`, with hit-test, anchors, hand tracking, mesh and 
 
 ### Flicker fixes (v2)
 
-- The gravel is flush with the ground.
+- The gravel is flush with the ground, and hidden in AR (Options or the menu bring it back), so your real floor and feet show through.
 - The contact shadow, the characters' blob shadows and the reticle draw with a polygon offset.
 - The shadow camera snaps to whole texels in light space.
 - The phone's light-estimate direction is smoothed.
